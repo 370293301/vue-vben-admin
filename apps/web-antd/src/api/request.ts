@@ -18,8 +18,13 @@ import { message } from 'ant-design-vue';
 import { useAuthStore } from '#/store';
 
 import { refreshTokenApi } from './core';
-
+import axios from 'axios';
 const { apiURL } = useAppConfig(import.meta.env, import.meta.env.PROD);
+
+
+// console.log(import.meta.env);
+
+
 
 function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   const client = new RequestClient({
@@ -105,9 +110,11 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
 
   return client;
 }
-
+// 设置 axios 的基础 URL
+axios.defaults.baseURL = import.meta.env.VITE_API_URL;
 export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
 });
 
 export const baseRequestClient = new RequestClient({ baseURL: apiURL });
+export default axios;

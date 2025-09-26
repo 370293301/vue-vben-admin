@@ -37,6 +37,34 @@
       "env": { "NODE_ENV": "development" },
       "sourceMaps": true,
       "webRoot": "${workspaceFolder}/apps/web-naive"
+    },
+    {
+      "name": "Chrome Debug (Vite)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://127.0.0.1:5666/",
+      "webRoot": "${workspaceFolder}/apps/web-antd",
+      "preLaunchTask": "pnpm run dev:antd",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "vite:///*": "${webRoot}/*",
+        "webpack:///*": "${webRoot}/*",
+        "webpack:///./*": "${webRoot}/*",
+        "*/src/*": "${webRoot}/src/*",
+        "/@fs/*":          "/*"    
+      }
+    },
+    {
+      "name": "Attach to Chrome (9222)",
+      "type": "pwa-chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "vite:///*": "${webRoot}/*",
+        "*/src/*": "${webRoot}/src/*"
+      }
     }
   ]
 }

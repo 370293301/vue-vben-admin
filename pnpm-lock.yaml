@@ -163,7 +163,7 @@ catalogs:
       specifier: ^10.4.21
       version: 10.4.21
     axios:
-      specifier: ^1.10.0
+      specifier: 1.10.0
       version: 1.10.0
     axios-mock-adapter:
       specifier: ^2.1.0
@@ -511,7 +511,7 @@ catalogs:
       specifier: ^4.7.12
       version: 4.7.16
     vxe-table:
-      specifier: ^4.14.4
+      specifier: 4.14.4
       version: 4.14.4
     watermark-js-plus:
       specifier: ^1.6.2
@@ -701,9 +701,15 @@ importers:
       ant-design-vue:
         specifier: 'catalog:'
         version: 4.2.6(vue@3.5.17(typescript@5.8.3))
+      axios:
+        specifier: 'catalog:'
+        version: 1.10.0
       dayjs:
         specifier: 'catalog:'
         version: 1.11.13
+      lodash-es:
+        specifier: ^4.17.21
+        version: 4.17.21
       pinia:
         specifier: ^3.0.3
         version: 3.0.3(typescript@5.8.3)(vue@3.5.17(typescript@5.8.3))
@@ -713,6 +719,12 @@ importers:
       vue-router:
         specifier: 'catalog:'
         version: 4.5.1(vue@3.5.17(typescript@5.8.3))
+      vxe-table:
+        specifier: 'catalog:'
+        version: 4.14.4(vue@3.5.17(typescript@5.8.3))
+      xe-utils:
+        specifier: ^3.7.9
+        version: 3.7.9
 
   apps/web-ele:
     dependencies:
@@ -10374,6 +10386,7 @@ packages:
   source-map@0.8.0-beta.0:
     resolution: {integrity: sha512-2ymg6oRBpebeZi9UUNsgQ89bhx01TcTkmNTGnNO88imTmbSgy4nfujrgVEFKWpMTEGA11EDkTt7mqObTPdigIA==}
     engines: {node: '>= 8'}
+    deprecated: The work that was done in this beta branch won't be included in future versions
 
   sourcemap-codec@1.4.8:
     resolution: {integrity: sha512-9NykojV5Uih4lgo5So5dtw+f0JgJX30KCNI8gwhz2J9A15wD0Ml6tjHKwf6fTSa6fAdVBdZeNOs9eJ71qCk8vA==}
@@ -11630,11 +11643,11 @@ packages:
     resolution: {integrity: sha512-GCPAHLvrIH13+c0SuacwvRYj2SxJXQ4kaVTT5xgL3kPrz56XxkF21IGhjSE1+W0aw7gpBWRGXLCPnPby6lSpmQ==}
     engines: {node: '>=12'}
 
-  xe-utils@3.7.4:
-    resolution: {integrity: sha512-9yuCHLOU+og4OEkPWWtzrYk1Zt1hgN66U/NCJ0+vYJSx1MplBtoQRz8aEA+2RmCr3leLru98vQxNpw/vJsu/sg==}
-
   xe-utils@3.7.8:
     resolution: {integrity: sha512-V/k6B/ASYir6yLYhp62DnM17po9u1N9mou/rn4if5WoFCsAO49JpCiVpkDpwCv4zxGfWmhWgzmz4FytWF+pDVw==}
+
+  xe-utils@3.7.9:
+    resolution: {integrity: sha512-LWH6M7g+TKX8P2fqGxDPgJQygiULhbMtpmfxTMxJTUjuUv9y2+I45UCcVLh5AnmJSxDV1xTxsq7G5P9Eid06JQ==}
 
   xml-name-validator@4.0.0:
     resolution: {integrity: sha512-ICP2e+jsHvAj2E2lIHxa5tjXRlKDJo4IdvPvCXbXQGdzSfmSpNVyIKMvoZHjDY9DP0zV17iI85o90vRFXNccRw==}
@@ -22173,7 +22186,7 @@ snapshots:
       '@rollup/pluginutils': 5.1.4(rollup@4.44.1)
       es-module-lexer: 1.7.0
       rollup: 4.44.1
-      xe-utils: 3.7.4
+      xe-utils: 3.7.8
 
   vite-plugin-pwa@1.0.1(vite@5.4.18(@types/node@22.16.0)(less@4.3.0)(sass@1.89.2)(terser@5.39.0))(workbox-build@7.3.0)(workbox-window@7.3.0):
     dependencies:
@@ -22721,9 +22734,9 @@ snapshots:
 
   xdg-basedir@5.1.0: {}
 
-  xe-utils@3.7.4: {}
-
   xe-utils@3.7.8: {}
+
+  xe-utils@3.7.9: {}
 
   xml-name-validator@4.0.0: {}
 

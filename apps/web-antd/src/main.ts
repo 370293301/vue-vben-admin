@@ -1,6 +1,7 @@
 import { initPreferences } from '@vben/preferences';
 import { unmountGlobalLoading } from '@vben/utils';
-
+import '#/adapter/vxe-table'                // 你的 setupVbenVxeTable()
+import 'vxe-table/styles/cssvar.scss'       // v4 样式
 import { overridesPreferences } from './preferences';
 
 /**

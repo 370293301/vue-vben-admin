@@ -24,7 +24,9 @@ import { openWindow } from '@vben/utils';
 import AnalyticsVisitsSource from '../analytics/analytics-visits-source.vue';
 
 const userStore = useUserStore();
-
+console.log(2323);
+console.log(userStore);
+console.log(8888);
 // 这是一个示例数据，实际项目中需要根据实际情况进行调整
 // url 也可以是内部路由，在 navTo 方法中识别处理，进行内部跳转
 // 例如：url: /dashboard/workspace

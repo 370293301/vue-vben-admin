@@ -7,7 +7,7 @@ import { setupVbenVxeTable, useVbenVxeGrid } from '@vben/plugins/vxe-table';
 import { Button, Image } from 'ant-design-vue';
 
 import { useVbenForm } from './form';
-
+import { merge } from 'lodash-es'
 setupVbenVxeTable({
   configVxeTable: (vxeUI) => {
     vxeUI.setConfig({
@@ -67,3 +67,14 @@ setupVbenVxeTable({
 export { useVbenVxeGrid };
 
 export type * from '@vben/plugins/vxe-table';
+export function createVxeGridOptions(custom: VxeTableGridOptions) {
+  const base: VxeTableGridOptions = {
+    pagerConfig: { pageSize: 10 },
+    proxyConfig: {
+      enabled: true,
+      autoLoad: true,
+      response: { result: 'result', total: 'total', list: 'result' },
+    },
+  }
+  return merge({}, base, custom)
+}
