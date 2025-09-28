@@ -1,33 +1,18 @@
-<template>
-  <div style="padding:16px">
-    <!-- 简单搜索区（不依赖 vxe 的渲染器） -->
-    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
-      <select v-model="form.field">
-        <option value="uid">玩家ID</option>
-        <option value="nickname">玩家名称</option>
-      </select>
-      <input v-model="form.keyword" placeholder="请输入" />
-      <button @click="doSearch">搜索</button>
-    </div>
-
-    <!-- 关键：原生 vxe-grid -->
-    <VxeGrid ref="gridRef" v-bind="gridOptions" />
-  </div>
-</template>
-
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import axios from 'axios'
-import { VxeGrid } from 'vxe-table'
-import 'vxe-table/lib/style.css'
+import { reactive, ref } from 'vue';
 
-const gridRef = ref()
+import axios from 'axios';
+import { VxeGrid } from 'vxe-table';
+
+import 'vxe-table/lib/style.css';
+
+const gridRef = ref();
 
 // 自己维护的查询表单数据
 const form = reactive({
   field: 'uid',
   keyword: '',
-})
+});
 
 const gridOptions = reactive({
   border: true,
@@ -43,7 +28,7 @@ const gridOptions = reactive({
 
   proxyConfig: {
     enabled: true,
-    autoLoad: true,   // 进入页面自动发起一次查询
+    autoLoad: true, // 进入页面自动发起一次查询
     response: {
       // 按你的后端返回结构改映射：
       // 这里假设后端返回：{ code:0, data: { list: [], total: 0 } }
@@ -63,16 +48,35 @@ const gridOptions = reactive({
             field: form.field,
             keyword: form.keyword,
           },
-        })
+        });
         // vxe 需要返回“后端原始响应对象”，它再按 response.props 去取字段
-        return res.data
+        return res.data;
       },
     },
   },
-})
+});
 
 // 点击搜索时，手动触发一次代理查询
 function doSearch() {
-  gridRef.value?.commitProxy('query')
+  gridRef.value?.commitProxy('query');
 }
 </script>
+
+<template>
+  <div style="padding: 16px">
+    <!-- 简单搜索区（不依赖 vxe 的渲染器） -->
+    <div
+      style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px"
+    >
+      <select v-model="form.field">
+        <option value="uid">玩家ID</option>
+        <option value="nickname">玩家名称</option>
+      </select>
+      <input v-model="form.keyword" placeholder="请输入" />
+      <button @click="doSearch">搜索</button>
+    </div>
+
+    <!-- 关键：原生 vxe-grid -->
+    <VxeGrid ref="gridRef" v-bind="gridOptions" />
+  </div>
+</template>

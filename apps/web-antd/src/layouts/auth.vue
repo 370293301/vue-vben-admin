@@ -2,13 +2,11 @@
 import { computed } from 'vue';
 
 import { AuthPageLayout } from '@vben/layouts';
-import { preferences } from '@vben/preferences';
 
 import { $t } from '#/locales';
 
 const appName = computed(() => '老王麻将推广员');
 const logo = '/logo.png';
-
 </script>
 
 <template>

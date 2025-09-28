@@ -1,2 +1,2 @@
-export { useVbenVxeGrid } from '@vben/plugins/vxe-table'
-export * from './vxe-table'
+export * from './vxe-table';
+export { useVbenVxeGrid } from '@vben/plugins/vxe-table';

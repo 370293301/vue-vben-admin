@@ -9,4 +9,3 @@ export async function getAllMenusApi() {
   // console.log(requestClient.get<RouteRecordStringComponent[]>)
   return requestClient.get<RouteRecordStringComponent[]>('/api/v1/home');
 }
-

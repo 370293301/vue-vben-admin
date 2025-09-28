@@ -1,39 +1,40 @@
+import { useRouter } from 'vue-router';
+
+import { LOGIN_PATH } from '@vben/constants';
+import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
+
 // src/store/auth.ts
 import { defineStore } from 'pinia';
-import {apiLogin,apiMe} from '#/api/auth';
-import { LOGIN_PATH } from '@vben/constants';
-import { useRouter } from 'vue-router';
-import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
+
+import { logoutApi } from '#/api'; // 你的 axios 实例（带 baseURL/拦截器）
+import { apiLogin, apiMe } from '#/api/auth';
 import axios from '#/utils/http';
-import {getUserInfoApi, logoutApi} from "#/api"; // 你的 axios 实例（带 baseURL/拦截器）
 // import type { Router } from 'vue-router';
 // import router from '#/router';
 
 type User = {
-  id: number;
-  username: string;
-  nickname?: string;
   avatar?: string;
+  id: number;
   is_admin: number;
+  nickname?: string;
   role_id?: number;
   role_name?: string;
+  username: string;
 };
 // const router = useRouter();
 // const accessStore = useAccessStore();
 // const userStore = useUserStore();
 export const useAuthStore = defineStore('auth', {
-
   state: () => ({
     token: '' as string,
     user: {} as Partial<User>,
     menus: [] as any[],
     notices: [] as any[],
-    agent: null as Record<string, any> | null,
+    agent: null as null | Record<string, any>,
     site: {} as Record<string, any>,
     loginLoading: false,
   }),
   actions: {
-
     setToken(t: string) {
       this.token = t;
       // 让后续请求自动带上 Bearer
@@ -55,7 +56,8 @@ export const useAuthStore = defineStore('auth', {
     //   this.user = u;
     // },
     setUserInfo(u: any) {
-      this.user = u; },
+      this.user = u;
+    },
     setMenus(m: any[]) {
       this.menus = m || [];
     },
@@ -81,36 +83,41 @@ export const useAuthStore = defineStore('auth', {
 
     async fetchUserInfo() {
       let userInfo: null | UserInfo = null;
-      const me = await apiMe();  // 调用 apiMe 获取用户信息
+      const me = await apiMe(); // 调用 apiMe 获取用户信息
       // console.log(me);return;
       if (me.data?.code === 0) {
         const me_user = me.data.data || {};
         userInfo = me_user;
         // 使用 useUserStore 来设置用户信息
         const userStore = useUserStore();
-        userStore.setUserInfo(me_user);  // 更新用户信息到 store
-      }else{
+        userStore.setUserInfo(me_user); // 更新用户信息到 store
+      } else {
         // console.log(1111);
         // return;
         const accessStore = useAccessStore();
         resetAllStores();
         accessStore.setLoginExpired(false);
         localStorage.removeItem('TOKEN');
-        delete axios.defaults.headers.common.Authorization
+        delete axios.defaults.headers.common.Authorization;
         window.location.replace(LOGIN_PATH);
       }
-      return userInfo;  // 返回用户信息
+      return userInfo; // 返回用户信息
     },
 
     // 登录动作：调用 /api/v1/login，成功后再拉一次 /api/v1/home
-    async authLogin(form: { username: string; password: string }, router:any,accessStore:any,userStore:any) {
+    async authLogin(
+      form: { password: string; username: string },
+      router: any,
+      accessStore: any,
+      userStore: any,
+    ) {
       // console.log(form)
       // return
       // // const router = useRouter();
       // const router = useRouter();  // 获取 router 实例
       // const accessStore = useAccessStore();  // 初始化 accessStore
-// 异步处理用户登录操作并获取 accessToken
-      let userInfo: null | UserInfo = null;
+      // 异步处理用户登录操作并获取 accessToken
+      const userInfo: null | UserInfo = null;
       try {
         this.loginLoading = true;
         const res = await apiLogin(form);
@@ -120,33 +127,26 @@ export const useAuthStore = defineStore('auth', {
 
         const { token, user } = res.data.data || {};
 
-        const accessToken  =token;
+        const accessToken = token;
 
         if (accessToken) {
           accessStore.setAccessToken(accessToken);
 
-          this.setToken(token); //设置接口token
-
+          this.setToken(token); // 设置接口token
 
           // 使用 Promise.all 来并行调用 fetchUserInfo 和 getAccessCodesApi
           const [fetchUserInfoResult] = await Promise.all([
-            this.fetchUserInfo(),  // 调用 fetchUserInfo
-
+            this.fetchUserInfo(), // 调用 fetchUserInfo
           ]);
 
           // 处理返回结果
           if (fetchUserInfoResult) {
-
-            userStore.setUserInfo(fetchUserInfoResult);  // 设置用户信息
+            userStore.setUserInfo(fetchUserInfoResult); // 设置用户信息
           }
-
-
-
 
           // console.log(user);return;
           // console.log(userStore);
           // return;
-
 
           this.setUserInfo(user || {});
           // console.log(555);
@@ -165,14 +165,11 @@ export const useAuthStore = defineStore('auth', {
           if (accessStore.loginExpired) {
             accessStore.setLoginExpired(false);
           } else {
-            router.push('/workspace');
+            router.push('/analytics');
           }
 
           // return;
-
         }
-
-
       } finally {
         this.loginLoading = false;
       }
@@ -180,7 +177,6 @@ export const useAuthStore = defineStore('auth', {
       return {
         userInfo,
       };
-
     },
 
     // async function fetchUserInfo() {
@@ -190,8 +186,9 @@ export const useAuthStore = defineStore('auth', {
     //   return userInfo;
     // }
 
-    async  logout( arg?: boolean | Router | { redirect?: boolean; router?: Router }) {
-
+    async logout(
+      arg?: boolean | Router | { redirect?: boolean; router?: Router },
+    ) {
       let redirect = true;
       let routerInst: Router | undefined;
 
@@ -206,7 +203,6 @@ export const useAuthStore = defineStore('auth', {
           routerInst = arg.router;
         }
       }
-
 
       try {
         await logoutApi();
@@ -233,21 +229,20 @@ export const useAuthStore = defineStore('auth', {
       this.agent = null;
       this.site = {};
       localStorage.removeItem('TOKEN');
-      delete axios.defaults.headers.common.Authorization
+      delete axios.defaults.headers.common.Authorization;
       window.location.replace(LOGIN_PATH);
       if (redirect) {
         // 优先用传入的 router；若没传且在组件环境中，也可兜底 useRouter()
-        routerInst = routerInst ?? (typeof window !== 'undefined' ? useRouter() : undefined);
+        routerInst =
+          routerInst ??
+          (typeof window === 'undefined' ? undefined : useRouter());
         if (routerInst) {
           await routerInst.replace({ path: LOGIN_PATH });
         }
       }
-
-
     },
 
     logout1() {
-
       this.token = '';
       this.user = {};
       this.menus = [];
@@ -259,5 +254,4 @@ export const useAuthStore = defineStore('auth', {
       // router.replace({ name: 'Login' });
     },
   },
-
 });

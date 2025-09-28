@@ -5,9 +5,10 @@ import { h } from 'vue';
 import { setupVbenVxeTable, useVbenVxeGrid } from '@vben/plugins/vxe-table';
 
 import { Button, Image } from 'ant-design-vue';
+import { merge } from 'lodash-es';
 
 import { useVbenForm } from './form';
-import { merge } from 'lodash-es'
+
 setupVbenVxeTable({
   configVxeTable: (vxeUI) => {
     vxeUI.setConfig({
@@ -75,6 +76,6 @@ export function createVxeGridOptions(custom: VxeTableGridOptions) {
       autoLoad: true,
       response: { result: 'result', total: 'total', list: 'result' },
     },
-  }
-  return merge({}, base, custom)
+  };
+  return merge({}, base, custom);
 }

@@ -14,12 +14,10 @@ defineOptions({ name: 'Login' });
 const authStore = useAuthStore();
 
 const MOCK_USER_OPTIONS: BasicOption[] = [
-
   {
     label: 'Admin',
     value: 'admin',
-  }
-
+  },
 ];
 
 const formSchema = computed((): VbenFormSchema[] => {
@@ -47,8 +45,10 @@ const formSchema = computed((): VbenFormSchema[] => {
 
       fieldName: 'password',
       label: $t('authentication.password'),
-      rules: z.string().min(1, { message: $t('authentication.passwordTip') })
-      .optional()
+      rules: z
+        .string()
+        .min(1, { message: $t('authentication.passwordTip') })
+        .optional()
         .default('123456'),
     },
     {
