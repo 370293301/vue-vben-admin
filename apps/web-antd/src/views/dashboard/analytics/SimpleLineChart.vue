@@ -1,33 +1,39 @@
 <script lang="ts" setup>
-import type { EchartsUIType } from '@vben/plugins/echarts';
 import type { EChartsOption, SeriesOption } from 'echarts';
-import { onMounted, ref, watch, computed } from 'vue';
+
+import type { EchartsUIType } from '@vben/plugins/echarts';
+
+import { computed, onMounted, ref, watch } from 'vue';
+
 import { EchartsUI, useEcharts } from '@vben/plugins/echarts';
 
-const props = withDefaults(defineProps<{
-  /** 标题（可选） */
-  title?: string;
-  /** X 轴类目（日期/时间） */
-  xData?: string[];
-  /** 系列（支持多条线/柱） */
-  series?: SeriesOption[];
-  /** y 轴最大值（不传自动） */
-  yMax?: number | null;
-  /** 是否平滑曲线 */
-  smooth?: boolean;
-  /** 是否填充面积 */
-  area?: boolean;
-  /** 显示右侧图例（用于多条线） */
-  showLegend?: boolean;
-}>(), {
-  title: '',
-  xData: () => Array.from({ length: 18 }).map((_, i) => `${i + 6}:00`),
-  series: () => [],
-  yMax: null,
-  smooth: true,
-  area: false,
-  showLegend: false,
-});
+const props = withDefaults(
+  defineProps<{
+    /** 是否填充面积 */
+    area?: boolean;
+    /** 系列（支持多条线/柱） */
+    series?: SeriesOption[];
+    /** 显示右侧图例（用于多条线） */
+    showLegend?: boolean;
+    /** 是否平滑曲线 */
+    smooth?: boolean;
+    /** 标题（可选） */
+    title?: string;
+    /** X 轴类目（日期/时间） */
+    xData?: string[];
+    /** y 轴最大值（不传自动） */
+    yMax?: null | number;
+  }>(),
+  {
+    title: '',
+    xData: () => Array.from({ length: 18 }).map((_, i) => `${i + 6}:00`),
+    series: () => [],
+    yMax: null,
+    smooth: true,
+    area: false,
+    showLegend: false,
+  },
+);
 
 const chartRef = ref<EchartsUIType>();
 const { renderEcharts } = useEcharts(chartRef);
@@ -39,12 +45,14 @@ const option = computed<EChartsOption>(() => {
     symbol: 'circle',
     symbolSize: 6,
     lineStyle: { width: 2, ...(s as any).lineStyle },
-    ...(props.area ? { areaStyle: (s as any).areaStyle ?? {} } : { }),
+    ...(props.area ? { areaStyle: (s as any).areaStyle ?? {} } : {}),
     ...s,
   })) as SeriesOption[];
 
   return {
-    title: props.title ? { text: props.title, left: 12, top: 8, textStyle: { fontSize: 14 } } : undefined,
+    title: props.title
+      ? { text: props.title, left: 12, top: 8, textStyle: { fontSize: 14 } }
+      : undefined,
     grid: {
       left: '1%',
       right: props.showLegend ? '12%' : '1%',
@@ -56,7 +64,9 @@ const option = computed<EChartsOption>(() => {
       trigger: 'axis',
       axisPointer: { lineStyle: { color: '#019680', width: 1 } },
     },
-    legend: props.showLegend ? { type: 'scroll', orient: 'vertical', right: 10, top: 32 } : undefined,
+    legend: props.showLegend
+      ? { type: 'scroll', orient: 'vertical', right: 10, top: 32 }
+      : undefined,
     xAxis: {
       type: 'category',
       boundaryGap: false,
@@ -80,7 +90,18 @@ function draw() {
 }
 
 onMounted(draw);
-watch(() => [props.xData, props.series, props.yMax, props.smooth, props.area, props.showLegend], draw, { deep: true });
+watch(
+  () => [
+    props.xData,
+    props.series,
+    props.yMax,
+    props.smooth,
+    props.area,
+    props.showLegend,
+  ],
+  draw,
+  { deep: true },
+);
 </script>
 
 <template>

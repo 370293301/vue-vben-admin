@@ -1,10 +1,20 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { reactive } from 'vue';
-import { Page } from '@vben/common-ui';
-import { Button, DatePicker, Image, Input, Select, message } from 'ant-design-vue';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
 
+import { reactive } from 'vue';
+
+import { Page } from '@vben/common-ui';
+
+import {
+  Button,
+  DatePicker,
+  Image,
+  Input,
+  message,
+  Select,
+} from 'ant-design-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
 // 如果你有真实接口，换成你的请求方法
 import { apiGetMemberList } from '#/api/member';
 
@@ -12,19 +22,19 @@ const { RangePicker } = DatePicker;
 
 interface RecordRow {
   id: number | string;
-  avatar: string;      // 头像地址
-  identity: string;    // 身份
-  nickname: string;    // 玩家名称
-  rounds: number;      // 局数
-  bigWinner: number;   // 大赢家次数
-  score: number;       // 战绩得分
+  avatar: string; // 头像地址
+  identity: string; // 身份
+  nickname: string; // 玩家名称
+  rounds: number; // 局数
+  bigWinner: number; // 大赢家次数
+  score: number; // 战绩得分
 }
 
 // 顶部筛选状态
 const searchState = reactive({
   // 日期范围：['2025-09-01', '2025-09-27'] 等
   dateRange: [] as any[],
-  field: 'uid',     // uid | nickname
+  field: 'uid', // uid | nickname
   keyword: '',
 });
 
@@ -92,8 +102,8 @@ const gridOptions: VxeGridProps<RecordRow> = {
         const params = {
           page: page.currentPage,
           pageSize: page.pageSize,
-          field: searchState.field,      // uid | nickname
-          keyword: searchState.keyword,  // 搜索词
+          field: searchState.field, // uid | nickname
+          keyword: searchState.keyword, // 搜索词
           startDate,
           endDate,
         };
@@ -155,12 +165,15 @@ function adjustShare(row: RecordRow) {
         <RangePicker
           v-model:value="searchState.dateRange"
           style="width: 240px; margin-right: 12px"
-          :placeholder="['开始日期','结束日期']"
+          :placeholder="['开始日期', '结束日期']"
           allow-clear
         />
 
         <!-- 字段 + 关键字 -->
-        <Select v-model:value="searchState.field" style="width: 120px; margin-right: 8px">
+        <Select
+          v-model:value="searchState.field"
+          style="width: 120px; margin-right: 8px"
+        >
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
         </Select>
@@ -170,7 +183,9 @@ function adjustShare(row: RecordRow) {
           allow-clear
           style="width: 220px; margin-right: 8px"
         />
-        <Button type="primary" @click="() => gridApi.commitProxy('query')">search</Button>
+        <Button type="primary" @click="() => gridApi.commitProxy('query')">
+          search
+        </Button>
       </template>
 
       <!-- 统计条（20 / 30 / 20 / 100） -->
@@ -196,12 +211,18 @@ function adjustShare(row: RecordRow) {
       <!-- 操作列 -->
       <template #action="{ row }">
         <div class="op-wrap">
-          <Button size="small" type="primary" ghost @click="viewChildren(row)">查看下级</Button>
-          <Button size="small" type="primary" ghost @click="setPromoter(row)">设为推广员</Button>
+          <Button size="small" type="primary" ghost @click="viewChildren(row)">
+            查看下级
+          </Button>
+          <Button size="small" type="primary" ghost @click="setPromoter(row)">
+            设为推广员
+          </Button>
           <Button size="small" @click="setRemark(row)">设置备注</Button>
           <Button size="small" @click="changeBelong(row)">从属修改</Button>
           <Button size="small" danger @click="freeze(row)">冻结</Button>
-          <Button size="small" @click="adjustShare(row)">调整充值分成比例</Button>
+          <Button size="small" @click="adjustShare(row)">
+            调整充值分成比例
+          </Button>
         </div>
       </template>
     </Grid>
@@ -216,10 +237,11 @@ function adjustShare(row: RecordRow) {
   margin-left: 24px;
   vertical-align: middle;
 }
+
 .stat-item {
+  min-width: 40px;
   font-size: 18px;
   font-weight: 600;
-  min-width: 40px;
   text-align: center;
 }
 

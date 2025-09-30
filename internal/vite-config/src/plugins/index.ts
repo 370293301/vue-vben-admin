@@ -118,10 +118,9 @@ async function loadApplicationPlugins(
 
   return await loadConditionPlugins([
     ...commonPlugins,
-      {
+    {
       condition: i18n,
       plugins: async () => {
-
         return [
           viteVueI18nPlugin({
             compositionOnly: true,
