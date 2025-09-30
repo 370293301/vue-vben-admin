@@ -43,6 +43,7 @@
     "@vueuse/core": "catalog:",
     "ant-design-vue": "catalog:",
     "axios": "catalog:",
+    "crypto-js": "^4.2.0",
     "dayjs": "catalog:",
     "echarts": "catalog:",
     "lodash-es": "^4.17.21",

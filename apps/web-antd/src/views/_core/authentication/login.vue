@@ -34,7 +34,7 @@ const formSchema = computed<VbenFormSchema[]>(() => [
       .string()
       .min(1, { message: $t('authentication.usernameTip') })
       .optional()
-      .default('13262603720'),
+      .default('ocY0D7jy06eKOV3Gdvp0A_gasS7Q'),
   },
   {
     component: 'VbenInputPassword',
@@ -45,7 +45,7 @@ const formSchema = computed<VbenFormSchema[]>(() => [
       .string()
       .min(1, { message: $t('authentication.passwordTip') })
       .optional()
-      .default('z5116257'),
+      .default('123456'),
   },
   {
     component: markRaw(SliderCaptcha),
@@ -65,6 +65,8 @@ const login = async (form: { password: string; username: string }) => {
   try {
     // 调用 store 中的 authLogin 方法并传递 router 实例
     await authStore.authLogin(form, router, accessStore, userStore); // 传递 router 实例
+
+
   } catch (error) {
     console.error('Login failed:', error);
   } finally {
