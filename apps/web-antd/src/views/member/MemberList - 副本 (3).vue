@@ -1,18 +1,27 @@
 <script lang="ts" setup>
-
 import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { reactive, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
 
-import { Button, Image, Input, message, Select, Modal } from 'ant-design-vue';
+import { Button, Image, Input, message, Modal, Select } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { apiGetMemberList,apiSetPromoter, apiSetRemark, apiSetRecommend, apiBanGame, apiSetRate } from '#/api/member';
+import {
+  apiBanGame,
+  apiGetMemberList,
+  apiSetPromoter,
+  apiSetRate,
+  apiSetRecommend,
+  apiSetRemark,
+} from '#/api/member';
+
 const bannedCache: Record<number, boolean> = reactive({});
 
 // 搜索状态
 const searchState = reactive({
-  field: 'uid' as 'uid' | 'nickname',
+  field: 'uid' as 'nickname' | 'uid',
   keyword: '',
 });
 // 排序状态：0 默认、1 钻石降序、2 钻石升序、3 金豆降序、4 金豆升序
@@ -29,7 +38,11 @@ const sortOptions = [
 // 当前查询的目标 pid（用于“查看下级”功能）
 // 初始为 AGENT_PID 或 ACCOUNT_ID（谁在请求）
 const currentTargetPid = ref<number>(
-  Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0)
+  Number(
+    localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  ),
 );
 // pid 历史栈：用于返回上一级
 const pidStack = ref<number[]>([]);
@@ -54,7 +67,12 @@ const columns: VxeGridProps<any>['columns'] = [
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
   { field: 'remark', title: '备注' },
-  { field: 'action', title: '操作', showOverflow: false, slots: { default: 'action' } },
+  {
+    field: 'action',
+    title: '操作',
+    showOverflow: false,
+    slots: { default: 'action' },
+  },
 ];
 
 const gridOptions: VxeGridProps<any> = {
@@ -79,7 +97,10 @@ const gridOptions: VxeGridProps<any> = {
           keyword: params.keyword,
           page: params.page,
           pageSize: params.pageSize,
-          extra: { targetPid: currentTargetPid.value,sortType: sortState.sortType  },
+          extra: {
+            targetPid: currentTargetPid.value,
+            sortType: sortState.sortType,
+          },
         });
 
         const payload = res?.data?.data ?? {};
@@ -96,7 +117,10 @@ const gridOptions: VxeGridProps<any> = {
           total = (payload as any).total;
         } else if (payload.totalPages === 1) {
           total = Array.isArray(rawList) ? rawList.length : 0;
-        } else if (typeof payload.totalPages === 'number' && payload.totalPages > 1) {
+        } else if (
+          typeof payload.totalPages === 'number' &&
+          payload.totalPages > 1
+        ) {
           total = payload.totalPages * page.pageSize;
         } else {
           total = Array.isArray(rawList) ? rawList.length : 0;
@@ -107,10 +131,16 @@ const gridOptions: VxeGridProps<any> = {
         const list = (rawList as any[]).map((it) => {
           const pid = Number(it.pid ?? it.id ?? 0);
           // 优先读取后端字段（it.isBanned / it.banned），若没有则使用本地缓存 bannedCache[pid]
-          const isBannedFromServer = (typeof it.isBanned !== 'undefined') ? !!it.isBanned
-            : (typeof it.banned !== 'undefined') ? !!it.banned
-              : undefined;
-          const isBanned = typeof isBannedFromServer === 'boolean' ? isBannedFromServer : !!bannedCache[pid];
+          const isBannedFromServer =
+            it.isBanned === undefined
+              ? it.banned === undefined
+                ? undefined
+                : !!it.banned)
+              : !!it.isBanned;
+          const isBanned =
+            typeof isBannedFromServer === 'boolean'
+              ? isBannedFromServer
+              : !!bannedCache[pid];
 
           return {
             id: pid,
@@ -160,7 +190,7 @@ function viewChildren(row: any) {
 }
 // 返回上级：弹出栈顶，把 pid 设回并 reload
 function goBack() {
-  if (!pidStack.value.length) return;
+  if (pidStack.value.length === 0) return;
 
   // 弹出上级 pid
   const prev = pidStack.value.pop() as number;
@@ -176,7 +206,11 @@ async function setPromoter(row: any) {
     (row as any).__promoterLoading = true;
 
     // 请求者 id（谁在操作）
-    const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+    const requestPid = Number(
+      localStorage.getItem('AGENT_PID') ??
+        localStorage.getItem('ACCOUNT_ID') ??
+        0,
+    );
     const pid = Number(row._raw?.pid ?? row.id ?? 0);
     if (!pid) {
       message.warning('无效的玩家 pid，无法设置');
@@ -197,7 +231,8 @@ async function setPromoter(row: any) {
     // 判断是否成功（请根据后端的真实返回结构调整判断条件）
     const ok =
       result === true ||
-      (typeof result === 'object' && (result.setResult === true || result.setResult === 1)) ||
+      (typeof result === 'object' &&
+        (result.setResult === true || result.setResult === 1)) ||
       (resp && (resp as any).code === 0);
 
     if (ok) {
@@ -218,18 +253,18 @@ async function setPromoter(row: any) {
         // gridApi.updateRow?.(row) // 如果适配器有 updateRow API
         // 否则轻微 reload 当前页以保证视图更新：
         // gridApi.reload();
-
-      } catch (e) {
-        console.warn('临时修改 row 失败', e);
+      } catch (error) {
+        console.warn('临时修改 row 失败', error);
       }
     } else {
       // 尝试解析后端错误信息
-      const errMsg = resp?.data?.msg ?? resp?.data?.message ?? '设置失败（返回值不为 true）';
+      const errMsg =
+        resp?.data?.msg ?? resp?.data?.message ?? '设置失败（返回值不为 true）';
       message.error(errMsg);
     }
-  } catch (e: any) {
-    console.error('[setPromoter] error', e);
-    message.error(e?.message || '设置推广员失败');
+  } catch (error: any) {
+    console.error('[setPromoter] error', error);
+    message.error(error?.message || '设置推广员失败');
   } finally {
     (row as any).__promoterLoading = false;
   }
@@ -238,7 +273,10 @@ async function setRemark(row: any) {
   try {
     (row as any).__remarkLoading = true;
     const currentRemark = row._raw?.remark ?? row._raw?.setRemark ?? '';
-    const remark = window.prompt('请输入备注内容：', String(currentRemark ?? ''));
+    const remark = window.prompt(
+      '请输入备注内容：',
+      String(currentRemark ?? ''),
+    );
     if (remark === null) {
       (row as any).__remarkLoading = false;
       return;
@@ -257,10 +295,17 @@ async function setRemark(row: any) {
       return;
     }
 
-    const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+    const requestPid = Number(
+      localStorage.getItem('AGENT_PID') ??
+        localStorage.getItem('ACCOUNT_ID') ??
+        0,
+    );
     const resp = await apiSetRemark({ pid, remark: trimmed, requestPid });
     const data = resp?.data ?? {};
-    const setResult = data?.setResult ?? data?.data?.setResult ?? (data?.code === 0 ? true : undefined);
+    const setResult =
+      data?.setResult ??
+      data?.data?.setResult ??
+      (data?.code === 0 ? true : undefined);
 
     if (setResult === true) {
       message.success('设置备注成功');
@@ -283,17 +328,16 @@ async function setRemark(row: any) {
           // 如果你有一个 reactive 状态可以触发 grid 重绘，这里可以用它；否则跳过
           // Example fallback: no-op
         }
-      } catch (e) {
-        console.warn('局部更新 row 失败：', e);
+      } catch (error) {
+        console.warn('局部更新 row 失败：', error);
       }
-
     } else {
       const errMsg = data?.msg ?? data?.message ?? '设置备注失败';
       message.error(errMsg);
     }
-  } catch (err: any) {
-    console.error('[setRemark] error', err);
-    message.error(err?.message ?? '设置备注失败');
+  } catch (error: any) {
+    console.error('[setRemark] error', error);
+    message.error(error?.message ?? '设置备注失败');
   } finally {
     (row as any).__remarkLoading = false;
   }
@@ -309,7 +353,9 @@ function changeBelong(row: any) {
   // 打开弹窗并把当前行缓存
   selectedRowForRecommend.value = row;
   // 如果行有已存在的 recommendId，填进去作为占位
-  recommendIdInput.value = row._raw?.recommendId ? String(row._raw.recommendId) : '';
+  recommendIdInput.value = row._raw?.recommendId
+    ? String(row._raw.recommendId)
+    : '';
   showRecommendModal.value = true;
 }
 
@@ -332,14 +378,22 @@ async function confirmRecommend() {
     return;
   }
 
-  const pid = Number(selectedRowForRecommend.value._raw?.pid ?? selectedRowForRecommend.value.id ?? 0);
+  const pid = Number(
+    selectedRowForRecommend.value._raw?.pid ??
+      selectedRowForRecommend.value.id ??
+      0,
+  );
   if (!pid) {
     message.error('当前行无效的玩家 pid，无法修改');
     return;
   }
 
   // requestPid 取当前 AGENT_PID 或 ACCOUNT_ID
-  const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+  const requestPid = Number(
+    localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  );
   if (!requestPid) {
     message.error('未检测到当前 AGENT_PID，无法执行操作');
     return;
@@ -372,8 +426,8 @@ async function confirmRecommend() {
         } else if (typeof gridApi.refreshRow === 'function') {
           gridApi.refreshRow(row);
         }
-      } catch (e) {
-        console.warn('局部更新行失败', e);
+      } catch (error) {
+        console.warn('局部更新行失败', error);
       }
 
       // 关闭弹窗
@@ -384,9 +438,9 @@ async function confirmRecommend() {
       const errMsg = data?.msg ?? data?.message ?? '从属修改失败';
       message.error(errMsg);
     }
-  } catch (err: any) {
-    console.error('[confirmRecommend] error', err);
-    message.error(err?.message ?? '从属修改接口调用失败');
+  } catch (error: any) {
+    console.error('[confirmRecommend] error', error);
+    message.error(error?.message ?? '从属修改接口调用失败');
   } finally {
     modalLoading.value = false;
   }
@@ -409,12 +463,21 @@ async function freeze(row: any) {
     }
 
     // 当前状态优先用行的 isBanned，再用缓存
-    const currentlyBanned = !!(row._raw?.isBanned ?? row.isBanned ?? bannedCache[pid] ?? false);
+    const currentlyBanned = !!(
+      row._raw?.isBanned ??
+      row.isBanned ??
+      bannedCache[pid] ??
+      false
+    );
 
     // type: 1 冻结，0 解冻
     const type = currentlyBanned ? 0 : 1;
 
-    const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+    const requestPid = Number(
+      localStorage.getItem('AGENT_PID') ??
+        localStorage.getItem('ACCOUNT_ID') ??
+        0,
+    );
     if (!requestPid) {
       message.error('未检测到 AGENT_PID，无法操作');
       return;
@@ -458,13 +521,13 @@ async function freeze(row: any) {
         // 例如修改 row.remark（或任何非关键字段）来触发视图重绘（保留本地 isBanned）
         row._tmpRerender = (row._tmpRerender || 0) + 1;
       }
-    } catch (e) {
+    } catch (error) {
       // fallback: 也不要强制 query()，因为那可能把后端旧值又覆盖回来
-      console.warn('局部刷新失败', e);
+      console.warn('局部刷新失败', error);
     }
-  } catch (err: any) {
-    console.error('[freeze] error', err);
-    message.error(err?.message ?? '冻结/解冻操作失败');
+  } catch (error: any) {
+    console.error('[freeze] error', error);
+    message.error(error?.message ?? '冻结/解冻操作失败');
   } finally {
     (row as any).__freezeLoading = false;
   }
@@ -497,13 +560,19 @@ async function confirmRate() {
     return;
   }
 
-  const pid = Number(selectedRowForRate.value._raw?.pid ?? selectedRowForRate.value.id ?? 0);
+  const pid = Number(
+    selectedRowForRate.value._raw?.pid ?? selectedRowForRate.value.id ?? 0,
+  );
   if (!pid) {
     message.error('当前行无效的玩家 pid，无法修改');
     return;
   }
 
-  const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+  const requestPid = Number(
+    localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  );
   if (!requestPid) {
     message.error('未检测到当前 AGENT_PID，无法执行操作');
     return;
@@ -538,8 +607,8 @@ async function confirmRate() {
         } else if (typeof gridApi.refreshRow === 'function') {
           gridApi.refreshRow(row);
         }
-      } catch (e) {
-        console.warn('局部更新 row 失败', e);
+      } catch (error) {
+        console.warn('局部更新 row 失败', error);
       }
 
       // 关闭弹窗并清理
@@ -550,9 +619,9 @@ async function confirmRate() {
       const errMsg = data?.msg ?? data?.message ?? '设置失败';
       message.error(errMsg);
     }
-  } catch (err: any) {
-    console.error('[confirmRate] error', err);
-    message.error(err?.message ?? '设置分成比例失败');
+  } catch (error: any) {
+    console.error('[confirmRate] error', error);
+    message.error(error?.message ?? '设置分成比例失败');
   } finally {
     rateModalLoading.value = false;
   }
@@ -569,25 +638,44 @@ function cancelRate() {
   <Page auto-content-height>
     <Grid table-title="玩家列表">
       <template #toolbar-tools>
-        <Select v-model:value="searchState.field" style="width: 120px; margin-right: 8px">
+        <Select
+          v-model:value="searchState.field"
+          style="width: 120px; margin-right: 8px"
+        >
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
         </Select>
-        <Input v-model:value="searchState.keyword" placeholder="搜索内容" allow-clear style="width: 220px; margin-right: 8px"/>
+        <Input
+          v-model:value="searchState.keyword"
+          placeholder="搜索内容"
+          allow-clear
+          style="width: 220px; margin-right: 8px"
+        />
         <!-- 新增：排序选择 -->
         <Select
           v-model:value="sortState.sortType"
           @change="onSortChange"
-          style="width: 140px; margin-right:8px"
+          style="width: 140px; margin-right: 8px"
         >
-          <Select.Option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+          <Select.Option
+            v-for="opt in sortOptions"
+            :key="opt.value"
+            :value="opt.value"
+          >
             {{ opt.label }}
           </Select.Option>
         </Select>
         <Button type="primary" @click="() => gridApi.query()">search</Button>
 
         <!-- 显示统计 & 当前查询对象 -->
-        <div style="display:inline-flex; gap:12px; margin-left:16px; align-items:center;">
+        <div
+          style="
+            display: inline-flex;
+            gap: 12px;
+            align-items: center;
+            margin-left: 16px;
+          "
+        >
           <div>当前查询 pid: {{ currentTargetPid }}</div>
           <div>总人数: {{ stats.totalCount }}</div>
           <div>总钻石: {{ stats.sumDiamond }}</div>
@@ -598,19 +686,17 @@ function cancelRate() {
           <Button @click="() => gridApi.query()">刷新当前页</Button>
           <Button @click="() => gridApi.reload()">刷新并回到第一页</Button>
         </div>
-        <div style="display:inline-flex; gap:12px; align-items:center;">
+        <div style="display: inline-flex; gap: 12px; align-items: center">
           <div>当前查询 pid: {{ currentTargetPid }}</div>
           <Button
             v-if="pidStack.length > 0"
             type="default"
-            style="margin-right:8px;"
+            style="margin-right: 8px"
             @click="goBack"
           >
             返回上级
           </Button>
         </div>
-
-
       </template>
 
       <template #avatar="{ row }">
@@ -619,7 +705,9 @@ function cancelRate() {
 
       <template #action="{ row }">
         <div style="display: flex; flex-wrap: wrap; gap: 8px">
-          <Button size="small" type="primary" ghost @click="viewChildren(row)">查看下级</Button>
+          <Button size="small" type="primary" ghost @click="viewChildren(row)">
+            查看下级
+          </Button>
           <Button
             size="small"
             type="primary"
@@ -630,18 +718,26 @@ function cancelRate() {
             设为推广员
           </Button>
           <Button size="small" @click="setRemark(row)">设置备注</Button>
-          <Button size="small" @click="() => changeBelong(row)" :loading="row.__changeLoading">从属修改</Button>
+          <Button
+            size="small"
+            @click="() => changeBelong(row)"
+            :loading="row.__changeLoading"
+          >
+            从属修改
+          </Button>
           <!-- 冻结时显示 danger, 解冻显示常规 -->
           <Button
             size="small"
             :danger="!(row._raw?.isBanned === true)"
-          :loading="row.__freezeLoading"
-          @click="() => freeze(row)"
+            :loading="row.__freezeLoading"
+            @click="() => freeze(row)"
           >
-          {{ row._raw?.isBanned ? '解冻' : '冻结' }}
+            {{ row._raw?.isBanned ? '解冻' : '冻结' }}
           </Button>
-<!--          <Button size="small" @click="adjustShare(row)">调整充值分成比例</Button>-->
-          <Button size="small" @click="() => openRateModal(row)">调整充值分成比例</Button>
+          <!--          <Button size="small" @click="adjustShare(row)">调整充值分成比例</Button>-->
+          <Button size="small" @click="() => openRateModal(row)">
+            调整充值分成比例
+          </Button>
         </div>
       </template>
     </Grid>
@@ -649,37 +745,40 @@ function cancelRate() {
     <Modal
       v-model:open="showRecommendModal"
       title="从属修改 - 输入推荐者ID"
-      :okText="'确认'"
-      :cancelText="'取消'"
-      :confirmLoading="modalLoading"
+      ok-text="确认"
+      cancel-text="取消"
+      :confirm-loading="modalLoading"
       @ok="confirmRecommend"
       @cancel="cancelRecommend"
     >
-      <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display: flex; flex-direction: column; gap: 8px">
         <div>请在下面输入新的推荐者ID（recommendId）：</div>
-        <Input v-model:value="recommendIdInput" placeholder="推荐者ID（数字）" />
-        <div style="color:var(--vben-text-3); font-size:12px;">说明：requestPid 会使用当前 AGENT_PID（或 ACCOUNT_ID）</div>
+        <Input
+          v-model:value="recommendIdInput"
+          placeholder="推荐者ID（数字）"
+        />
+        <div style="font-size: 12px; color: var(--vben-text-3)">
+          说明：requestPid 会使用当前 AGENT_PID（或 ACCOUNT_ID）
+        </div>
       </div>
     </Modal>
     <!-- 调整充值分成比例弹窗 -->
     <Modal
       v-model:open="showRateModal"
       title="调整充值分成比例"
-      :okText="'确认'"
-      :cancelText="'取消'"
-      :confirmLoading="rateModalLoading"
+      ok-text="确认"
+      cancel-text="取消"
+      :confirm-loading="rateModalLoading"
       @ok="confirmRate"
       @cancel="cancelRate"
     >
-      <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display: flex; flex-direction: column; gap: 8px">
         <div>请输入新的分成比例（0 - 100）：</div>
         <Input v-model:value="rateInput" placeholder="比例 例如：10 表示 10%" />
-        <div style="color:var(--vben-text-3); font-size:12px;">
+        <div style="font-size: 12px; color: var(--vben-text-3)">
           请求者 requestPid 将使用当前 AGENT_PID（或 ACCOUNT_ID）
         </div>
       </div>
     </Modal>
-
-
   </Page>
 </template>

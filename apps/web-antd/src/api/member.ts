@@ -5,13 +5,17 @@ import { apiJavaPost } from '#/api/auth'; // 使用你已有的 apiJavaPost 实�
 // const JAVA_BASE = 'http://47.117.179.59:9888';
 // const AGENT_PLAYER_LIST_URL = `${JAVA_BASE}/agentPlayerList`;
 // const AGENT_PLAYER_LIST_URL = 'http://47.117.179.59:9888/agentPlayerList'; // 改为相对路径
-const JAVA_BASE = (import.meta.env.PROD ? (import.meta.env.VITE_API_URL as string) : '');
+const JAVA_BASE = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL as string)
+  : '';
 export const AGENT_PLAYER_LIST_URL = import.meta.env.PROD
-  ? `${JAVA_BASE}/agentPlayerList`    // 生产直接调用后端真实路径（无 /api 前缀）
-  : '/api/agentPlayerList';           // 开发走 vite proxy（/api -> dev proxy）
+  ? `${JAVA_BASE}/agentPlayerList` // 生产直接调用后端真实路径（无 /api 前缀）
+  : '/api/agentPlayerList'; // 开发走 vite proxy（/api -> dev proxy）
 // const AGENT_PLAYER_LIST_URL = '/api/agentPlayerList';
 /** 推荐把实际 secret / keyname 放在环境变量里（Vite .env），调试时可临时写死 */
-const JAVA_SECRET = (import.meta.env?.VITE_JAVA_SECRET as string) || '33f77501874dbcd087ed565d9b511117';
+const JAVA_SECRET =
+  (import.meta.env?.VITE_JAVA_SECRET as string) ||
+  '33f77501874dbcd087ed565d9b511117';
 // 如果后端期望以 Charge_Key=xxxx 拼接，请把下面改为 'Charge_Key'
 const JAVA_SECRET_KEY_NAME: string | undefined = undefined;
 
@@ -48,17 +52,21 @@ export interface AgentPlayerListResp {
 console.log('[debug] AGENT_PLAYER_LIST_URL =', AGENT_PLAYER_LIST_URL);
 // src/api/member.ts （替换原来的 apiGetMemberList 实现）
 export async function apiGetMemberList(params: {
+  extra?: Record<string, any>;
   field?: string;
   keyword?: string;
   page: number;
   pageSize: number;
-  extra?: Record<string, any>;
 }) {
   console.log('[debug] apiGetMemberList called, params=', params);
   console.log('[debug] AGENT_PLAYER_LIST_URL =', AGENT_PLAYER_LIST_URL);
 
   // 请求者 ID（谁在请求）——始终传 requestPid（从 localStorage 读取）
-  const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+  const requestPid = Number(
+    localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  );
 
   const isSearching = !!(params.keyword && params.keyword.trim());
   const field = params.field ?? '';
@@ -66,17 +74,20 @@ export async function apiGetMemberList(params: {
 
   // 支持 caller 传入 targetPid（比如查看下级时传入 row.pid）
   const targetPidFromExtra = params.extra?.targetPid ?? null;
-// 支持 caller 传入 sortType（优先使用 extra 提供的）
+  // 支持 caller 传入 sortType（优先使用 extra 提供的）
   const sortTypeFromExtra = params.extra?.sortType;
   // 强制为数字，若未传则默认 0
-  const sortType = typeof sortTypeFromExtra === 'number' ? sortTypeFromExtra : Number(sortTypeFromExtra ?? 0);
+  const sortType =
+    typeof sortTypeFromExtra === 'number'
+      ? sortTypeFromExtra
+      : Number(sortTypeFromExtra ?? 0);
   // 默认 body（注意：这里先不覆盖 pid，后面按逻辑设置）
   const body: Record<string, any> = {
     pagNum: params.page,
     showNum: params.pageSize,
     sortType: sortType ?? 0,
-    requestPid: requestPid, // 谁在请求
-    ...(params.extra || {}),
+    requestPid, // 谁在请求
+    ...params.extra,
   };
 
   if (isSearching) {
@@ -95,27 +106,23 @@ export async function apiGetMemberList(params: {
     // 非搜索（列表）场景
     body.searchType = 0;
     // 优先使用 caller 指定的 targetPid（例如查看下级），否则使用 requestPid（默认展示当前代理下列表）
-    if (targetPidFromExtra !== null && typeof targetPidFromExtra !== 'undefined') {
-      body.pid = Number(targetPidFromExtra) || 0;
-    } else {
-      body.pid = requestPid;
-    }
+    body.pid =
+      targetPidFromExtra !== null && targetPidFromExtra !== undefined
+        ? Number(targetPidFromExtra) || 0
+        : requestPid;
     body.name = '';
   }
   // 确保 body.sortType 最终是 number 且落在 0-4 之间（防错）
-  body.sortType = Number.isFinite(Number(body.sortType)) ? Number(body.sortType) : 0;
+  body.sortType = Number.isFinite(Number(body.sortType))
+    ? Number(body.sortType)
+    : 0;
   if (body.sortType < 0 || body.sortType > 4) body.sortType = 0;
   console.log('[debug] apiGetMemberList sending body=', body);
 
-  const resp = await apiJavaPost(
-    AGENT_PLAYER_LIST_URL,
-    body,
-    JAVA_SECRET,
-    {
-      contentType: 'form',
-      secretKeyName: JAVA_SECRET_KEY_NAME,
-    }
-  );
+  const resp = await apiJavaPost(AGENT_PLAYER_LIST_URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
 
   return resp as unknown as { data?: any; status?: number };
 }
@@ -129,12 +136,17 @@ export async function apiGetMemberList(params: {
  */
 export async function apiSetPromoter(opts: {
   pid: number | string;
-  type?: number;
   requestPid?: number | string;
+  type?: number;
 }) {
   const pid = Number(opts.pid || 0);
   const type = typeof opts.type === 'number' ? opts.type : 0;
-  const requestPid = Number(opts.requestPid ?? localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+  const requestPid = Number(
+    opts.requestPid ??
+      localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  );
 
   const body: Record<string, any> = {
     pid,
@@ -156,7 +168,7 @@ export async function apiSetPromoter(opts: {
     {
       contentType: 'form',
       secretKeyName: JAVA_SECRET_KEY_NAME,
-    }
+    },
   );
 
   // resp 结构依后端而定，返回示例 { setResult: true } 或 { code:0, data: { setResult: true } }
@@ -179,7 +191,12 @@ export async function apiSetRemark(opts: {
 }) {
   const pid = Number(opts.pid || 0);
   const remark = String(opts.remark ?? '');
-  const requestPid = Number(opts.requestPid ?? localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+  const requestPid = Number(
+    opts.requestPid ??
+      localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  );
 
   const body: Record<string, any> = {
     pid,
@@ -193,24 +210,25 @@ export async function apiSetRemark(opts: {
     ? `${(import.meta.env.VITE_API_URL as string) || ''}/agentSetRemark`
     : '/api/agentSetRemark';
 
-  const resp = await apiJavaPost(
-    AGENT_SET_REMARK_URL,
-    body,
-    JAVA_SECRET,
-    {
-      contentType: 'form',
-      secretKeyName: JAVA_SECRET_KEY_NAME,
-    }
-  );
+  const resp = await apiJavaPost(AGENT_SET_REMARK_URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
 
   console.log('[debug] apiSetRemark resp=', resp);
   return resp as unknown as { data?: any; status?: number };
 }
 // 新增：agentSetRecommend 接口调用
 // params: { pid, recommendId, requestPid }
-export async function apiSetRecommend(params: { pid: number; recommendId: number; requestPid: number }) {
+export async function apiSetRecommend(params: {
+  pid: number;
+  recommendId: number;
+  requestPid: number;
+}) {
   // 生产/开发地址复用之前 AGENT_PLAYER_LIST_URL 的写法风格（只替换 endpoint）
-  const JAVA_BASE = (import.meta.env.PROD ? (import.meta.env.VITE_API_URL as string) : '');
+  const JAVA_BASE = import.meta.env.PROD
+    ? (import.meta.env.VITE_API_URL as string)
+    : '';
   const URL = import.meta.env.PROD
     ? `${JAVA_BASE}/agentSetRecommend`
     : '/api/agentSetRecommend';
@@ -221,15 +239,10 @@ export async function apiSetRecommend(params: { pid: number; recommendId: number
     requestPid: params.requestPid,
   };
 
-  const resp = await apiJavaPost(
-    URL,
-    body,
-    JAVA_SECRET,
-    {
-      contentType: 'form',
-      secretKeyName: JAVA_SECRET_KEY_NAME,
-    }
-  );
+  const resp = await apiJavaPost(URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
 
   return resp as unknown as { data?: any; status?: number };
 }
@@ -243,12 +256,17 @@ export async function apiSetRecommend(params: { pid: number; recommendId: number
  */
 export async function apiBanGame(opts: {
   pid: number | string;
-  type: number;
   requestPid?: number | string;
+  type: number;
 }) {
   const pid = Number(opts.pid || 0);
   const type = Number(opts.type || 0);
-  const requestPid = Number(opts.requestPid ?? localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+  const requestPid = Number(
+    opts.requestPid ??
+      localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  );
 
   const body = {
     pid,
@@ -262,40 +280,38 @@ export async function apiBanGame(opts: {
     ? `${(import.meta.env.VITE_API_URL as string) || ''}/agentBanGame`
     : '/api/agentBanGame';
 
-  const resp = await apiJavaPost(
-    AGENT_BAN_GAME_URL,
-    body,
-    JAVA_SECRET,
-    {
-      contentType: 'form',
-      secretKeyName: JAVA_SECRET_KEY_NAME,
-    }
-  );
+  const resp = await apiJavaPost(AGENT_BAN_GAME_URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
 
   console.log('[debug] apiBanGame resp=', resp);
   return resp as unknown as { data?: any; status?: number };
 }
-export async function apiSetRate(params: { pid: number; rate: number; requestPid: number }) {
-  const JAVA_BASE = (import.meta.env.PROD ? (import.meta.env.VITE_API_URL as string) : '');
-  const URL = import.meta.env.PROD ? `${JAVA_BASE}/agentSetRate` : '/api/agentSetRate';
+export async function apiSetRate(params: {
+  pid: number;
+  rate: number;
+  requestPid: number;
+}) {
+  const JAVA_BASE = import.meta.env.PROD
+    ? (import.meta.env.VITE_API_URL as string)
+    : '';
+  const URL = import.meta.env.PROD
+    ? `${JAVA_BASE}/agentSetRate`
+    : '/api/agentSetRate';
 
   const body = {
     pid: params.pid,
-    rate: params.rate,       // 0-100
+    rate: params.rate, // 0-100
     requestPid: params.requestPid,
   };
 
   console.log('[debug] apiSetRate sending body=', body);
 
-  const resp = await apiJavaPost(
-    URL,
-    body,
-    JAVA_SECRET,
-    {
-      contentType: 'form',
-      secretKeyName: JAVA_SECRET_KEY_NAME,
-    }
-  );
+  const resp = await apiJavaPost(URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
 
   console.log('[debug] apiSetRate resp=', resp);
   return resp as unknown as { data?: any; status?: number };

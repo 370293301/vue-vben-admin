@@ -1,9 +1,9 @@
 // import {HomeResp} from "#/api/auth";
 
+// 请确保 api/auth.ts 已按前文实现并导出这两个函数
 // src/api/member.ts
 // import { LAYOUT } from '@/router/constant'
 import axios from '#/api/request';
-import { apiNodeClientLogin, apiJavaPost } from '#/api/auth'; // 请确保 api/auth.ts 已按前文实现并导出这两个函数
 /** 玩家列表响应类型 */
 export interface MemberListResp {
   code: number;

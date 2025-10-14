@@ -1,6 +1,7 @@
+import CryptoJS from 'crypto-js'; // npm i crypto-js
+
 // src/api/auth.ts
 import axios from '#/api/request'; // 你的 axios 实例
-import CryptoJS from 'crypto-js'; // npm i crypto-js
 
 export interface ApiResp<T = any> {
   code?: number;
@@ -21,12 +22,12 @@ export function md5Hex(str: string): string {
  * @param options.secretKeyName 如果提供（如 "Charge_Key"），则按 &Charge_Key=<secret> 追加；否则按 &<secret> 追加
  */
 export function buildSign(
-  params: Record<string, string | number | boolean>,
+  params: Record<string, boolean | number | string>,
   secret: string,
-  options?: { secretKeyName?: string | undefined }
+  options?: { secretKeyName?: string | undefined },
 ): { sign: string; signSource: string } {
   // 复制并只保留非空字符串 / number / boolean 的键（避免 undefined/null）
-  const safeParams: Record<string, string | number | boolean> = {};
+  const safeParams: Record<string, boolean | number | string> = {};
   Object.keys(params || {}).forEach((k) => {
     const v = params[k];
     if (v !== undefined && v !== null) safeParams[k] = v;
@@ -37,11 +38,12 @@ export function buildSign(
   const parts = keys.map((k) => `${k}=${String(safeParams[k])}`);
   // 拼接
   let signSource = parts.join('&');
-  if (options && typeof options.secretKeyName === 'string' && options.secretKeyName.length > 0) {
-    signSource += `&${options.secretKeyName}=${secret}`;
-  } else {
-    signSource += `&${secret}`;
-  }
+  signSource +=
+    options &&
+    typeof options.secretKeyName === 'string' &&
+    options.secretKeyName.length > 0
+      ? `&${options.secretKeyName}=${secret}`
+      : `&${secret}`;
   const sign = md5Hex(signSource);
   return { sign, signSource };
 }
@@ -61,10 +63,10 @@ export async function apiJavaPost(
   params: Record<string, any>,
   secret: string,
   options?: {
-    secretKeyName?: string | undefined;
     contentType?: 'form' | 'json';
+    secretKeyName?: string | undefined;
     useSortedParamsForBody?: boolean;
-  }
+  },
 ) {
   const contentType = options?.contentType ?? 'form';
   const secretKeyName = options?.secretKeyName;
@@ -78,7 +80,10 @@ export async function apiJavaPost(
   if (contentType === 'form') {
     const body = new URLSearchParams();
     // 如果希望 body 中也按排序写入字段，启用 useSortedParamsForBody = true（默认 true）
-    const keys = options?.useSortedParamsForBody === false ? Object.keys(params) : Object.keys(params).sort();
+    const keys =
+      options?.useSortedParamsForBody === false
+        ? Object.keys(params)
+        : Object.keys(params).sort();
     keys.forEach((k) => {
       const v = params[k];
       if (v === undefined || v === null) return;
@@ -87,21 +92,23 @@ export async function apiJavaPost(
     // append sign
     body.append('sign', sign);
 
-    const tokenFromLS = typeof window !== 'undefined' ? localStorage.getItem('TOKEN') : null;
-    const headersToSend: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    const tokenFromLS =
+      typeof window === 'undefined' ? null : localStorage.getItem('TOKEN');
+    const headersToSend: Record<string, string> = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
     if (tokenFromLS) headersToSend.Authorization = `Bearer ${tokenFromLS}`;
 
     console.log('[apiJavaPost] POST ->', url);
     console.log('[apiJavaPost] headersToSend =', headersToSend);
     console.log('[apiJavaPost] body =', body.toString ? body.toString() : body);
 
-
     return axios.post(url, body.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
   } else {
     // JSON body：把 sign 附加到 params 对象
-    const bodyObj: Record<string, any> = { ...(params || {}) };
+    const bodyObj: Record<string, any> = { ...params };
     bodyObj.sign = sign;
     return axios.post(url, bodyObj, {
       headers: { 'Content-Type': 'application/json' },
