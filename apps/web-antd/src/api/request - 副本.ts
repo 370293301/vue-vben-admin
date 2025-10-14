@@ -109,18 +109,10 @@ function createRequestClient(baseURL: string, options?: RequestClientOptions) {
   return client;
 }
 // 设置 axios 的基础 URL
-// dev 时让请求走相对路径（由 Vite proxy 转发），prod 时才设置为远端地址
-const isProd = import.meta.env.PROD === true;
-const effectiveApiURL = isProd ? (apiURL || (import.meta.env.VITE_API_URL as string || '')) : '';
-
-// 只在生产环境设置 axios 全局 baseURL，开发环境保持 undefined（相对路径 -> 走 dev proxy）
-axios.defaults.baseURL = isProd ? effectiveApiURL : undefined;
-
-// requestClient / baseRequestClient 都使用 effectiveApiURL（dev -> ''，会变为相对路径）
-export const requestClient = createRequestClient(effectiveApiURL, {
+axios.defaults.baseURL = import.meta.env.VITE_API_URL;
+export const requestClient = createRequestClient(apiURL, {
   responseReturn: 'data',
 });
 
-export const baseRequestClient = new RequestClient({ baseURL: effectiveApiURL });
-
+export const baseRequestClient = new RequestClient({ baseURL: apiURL });
 export default axios;

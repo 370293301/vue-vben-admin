@@ -6,7 +6,6 @@ import { overridesPreferences } from './preferences';
 import '#/adapter/vxe-table'; // 你的 setupVbenVxeTable()
 
 import 'vxe-table/styles/cssvar.scss'; // v4 样式
-import './styles/variables.css';
 
 /**
  * 应用初始化完成之后再进行页面加载渲染

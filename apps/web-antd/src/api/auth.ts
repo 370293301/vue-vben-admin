@@ -87,6 +87,15 @@ export async function apiJavaPost(
     // append sign
     body.append('sign', sign);
 
+    const tokenFromLS = typeof window !== 'undefined' ? localStorage.getItem('TOKEN') : null;
+    const headersToSend: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' };
+    if (tokenFromLS) headersToSend.Authorization = `Bearer ${tokenFromLS}`;
+
+    console.log('[apiJavaPost] POST ->', url);
+    console.log('[apiJavaPost] headersToSend =', headersToSend);
+    console.log('[apiJavaPost] body =', body.toString ? body.toString() : body);
+
+
     return axios.post(url, body.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });

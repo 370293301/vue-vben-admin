@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia';
 import { useRouter } from 'vue-router';
 import axios from '#/utils/http'; // 你的 axios 实例（用于在 setToken 中设置默认 header）
+import requestAxios from '#/api/request';
 import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { LOGIN_PATH } from '@vben/constants';
 import { getAllMenusApi } from '#/api/core/menu';
@@ -43,17 +44,46 @@ export const useAuthStore = defineStore('auth', {
     /**
      * 设置 token（用于后续请求）
      */
+    // setToken(t: string) {
+    //   this.token = t || '';
+    //   if (t) {
+    //     axios.defaults.headers.common.Authorization = `Bearer ${t}`;
+    //     localStorage.setItem('TOKEN', t);
+    //   } else {
+    //     delete axios.defaults.headers.common.Authorization;
+    //     localStorage.removeItem('TOKEN');
+    //   }
+    // },
+    // 替换原有 setToken 实现为：
+    // 替换 setToken 实现：
     setToken(t: string) {
       this.token = t || '';
+      console.log('[auth.setToken] called, token=', t);
       if (t) {
+        // utils/http 实例（你的 axios）
         axios.defaults.headers.common.Authorization = `Bearer ${t}`;
+        // api/request 实例（可能用于 Java 请求）
+        try {
+          requestAxios.defaults.headers.common.Authorization = `Bearer ${t}`;
+          console.log('[auth.setToken] set requestAxios header ok');
+        } catch (e) {
+          console.warn('[auth.setToken] set requestAxios header failed', e);
+        }
         localStorage.setItem('TOKEN', t);
       } else {
         delete axios.defaults.headers.common.Authorization;
+        try { delete requestAxios.defaults.headers.common.Authorization; } catch (_) {}
         localStorage.removeItem('TOKEN');
       }
-    },
 
+      // 输出当前两个实例的 header（便于验证）
+      try {
+        console.log('[auth.setToken] utils/http header =', axios.defaults.headers.common.Authorization);
+        console.log('[auth.setToken] api/request header =', requestAxios.defaults.headers.common.Authorization);
+      } catch (e) {
+        console.warn('[auth.setToken] print headers failed', e);
+      }
+    },
     /**
      * 恢复本地存储的 token（页面刷新时使用）
      */
@@ -250,22 +280,47 @@ export const useAuthStore = defineStore('auth', {
         const ok = data.Head === 0 || data.code === 0 || data.Code === 0 || !!data.AccountID;
         if (!ok) return null;
         data.roles = ['推广员'];
-
+        // console.log('-------------------2222')
+        // console.log(data)
+        // const userInfo = {
+        //   id: data.AccountID ?? data.accountID ?? undefined,
+        //   username: data.CharAccount ?? data.charAccount ?? undefined,
+        //   avatar: data.HeadImageUrl ?? '',
+        //   nickname: data.NickName ?? '',
+        //
+        //   ...data,
+        // };
         const userInfo = {
-          id: data.AccountID ?? data.accountID ?? undefined,
-          username: data.CharAccount ?? data.charAccount ?? undefined,
-          avatar: data.HeadImageUrl ?? '',
-          nickname: data.NickName ?? '',
-
+          id: data.data.AccountID ?? data.data.accountID,
+          username: data.data.name ?? data.data.name ?? form.username,
+          avatar: data.data.headUrl ?? '',
+          nickname: data.data.name ?? '',
           ...data,
         };
-
+        // console.log('-------------------3333')
+        // console.log(userInfo)
         this.setUserInfo(userInfo);
+        const userStore = useUserStore();
+        if (userStore) {
+          userStore.setUserInfo(userInfo);
+        } else {
+          try {
+            const us = useUserStore();
+            us.setUserInfo(userInfo);
+          } catch (_) {}
+        }
 
+
+        const pid = data.data.pid ?? null;
+        if (pid) {
+          this.agent = { ...(this.agent || {}), pid };
+          localStorage.setItem('AGENT_PID', String(pid));
+        }
         const jToken = data.Token ?? data.token;
         if (jToken) {
           this.setToken(jToken);
         }
+
 
         return userInfo;
       } catch (err) {
@@ -323,6 +378,8 @@ export const useAuthStore = defineStore('auth', {
 
         // 2) Java agentLogin 获取玩家信息
         const javaUrl = 'http://47.117.179.59:9888/agentLogin';
+
+
         const javaResp = await apiJavaPost(
           javaUrl,
           { accountID: this.accountID },
@@ -343,14 +400,40 @@ export const useAuthStore = defineStore('auth', {
         // }
 
         const userInfo = {
-          id: jdata.AccountID ?? jdata.accountID,
-          username: jdata.CharAccount ?? jdata.charAccount ?? form.username,
-          avatar: jdata.HeadImageUrl ?? '',
-          nickname: jdata.NickName ?? '',
+          id: jdata.data.AccountID ?? jdata.data.accountID,
+          username: jdata.data.name ?? jdata.data.name ?? form.username,
+          avatar: jdata.data.headUrl ?? '',
+          nickname: jdata.data.name ?? '',
           ...jdata,
         };
-
+        console.log(userInfo)
         this.setUserInfo(userInfo);
+        // console.log('-------------------333')
+        // // --------- 新增：提取并保存 pid ---------
+        // console.log('-------------------44444')
+        console.log(jdata)
+        // console.log(jdata.data.pid)
+        const pid =
+          jdata.data.pid ??
+          null;
+
+        if (pid !== null && pid !== undefined) {
+          // 写入 Pinia store 字段（方便在组件内读取）
+          // 我这里用 this.agent 保存示例，你也可以新增 this.agentPid 字段
+          try {
+            this.agent = { ...(this.agent || {}), pid };
+          } catch (e) {
+            // 忽略
+          }
+          console.log('-------------------99998888')
+          console.log(pid)
+          // 写入 localStorage，key 可以自定义（建议使用 AGENT_PID）
+          try {
+            localStorage.setItem('AGENT_PID', String(pid));
+          } catch (e) {
+            console.warn('保存 AGENT_PID 失败', e);
+          }
+        }
         if (userStore) {
           userStore.setUserInfo(userInfo);
         } else {
@@ -535,6 +618,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = '';
       this.nodeToken = '';
       this.accountID = '';
+      this.pid = '';
       this.user = {};
       this.menus = [];
       this.notices = [];
