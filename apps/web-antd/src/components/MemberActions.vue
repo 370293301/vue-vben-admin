@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import { ref } from 'vue';
 import { Button, Modal, Input, message } from 'ant-design-vue';
 import { apiSetPromoter, apiSetRemark, apiSetRecommend, apiBanGame, apiSetRate } from '#/api/member';
 

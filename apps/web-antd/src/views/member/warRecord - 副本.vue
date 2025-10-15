@@ -2,110 +2,85 @@
 
 import MemberActions from '#/components/MemberActions.vue';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { reactive, ref,createVNode,render} from 'vue';
+import { reactive, ref  } from 'vue';
 import { Page } from '@vben/common-ui';
 import { Button, DatePicker, Image, Input, message, Select, Modal } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 // <-- 请把此处替换为你实际的接口实现路径 -->
-import { agentReqGameRecord } from '#/api/game';
+import { agentReqGameRecord,agentReqGameDetailRecord  } from '#/api/game';
 const { RangePicker } = DatePicker;
-import DetailModalContent from './DetailModalContent.vue'; // 根据实际路径调整
+
 
 // 弹窗状态
-// const detailModalVisible = ref(false);
-// const detailLoading = ref(false);
-// const detailRecords = ref<GameDetailRecord[]>([]);
-// const detailPage = ref(1);
+const detailModalVisible = ref(false);
+const detailLoading = ref(false);
+const detailRecords = ref<GameDetailRecord[]>([]);
+const detailPage = ref(1);
 const detailPageSize = ref(10);
-// const detailTotalPages = ref(0);
-// const detailPid = ref<number | null>(null);
+const detailTotalPages = ref(0);
+const detailPid = ref<number | null>(null);
 
 // 打开弹窗（由列表中点击“战绩得分”时调用）
 // row: 当前行对象（含 pid）
-function openDetailModal(row: any, page = 1) {
-  const pid = Number(row.pid ?? row.id ?? row._raw?.pid ?? 0);
-  if (!pid) {
-    message.warning('无效的 pid');
-    return;
-  }
-
-  // container 挂到 body
-  const container = document.createElement('div');
-  document.body.appendChild(container);
-
-  // onClose: 卸载 vnode 并移除 container
-  function onClose() {
-    try {
-      render(null, container);
-      if (container.parentNode) container.parentNode.removeChild(container);
-    } catch (e) {
-      console.warn('closing modal render error', e);
-    }
-  }
-
-  // create vnode 并 render
-  const vnode = createVNode(DetailModalContent, {
-    pid,
-    pageSize: detailPageSize,      // 你页面里已有 detailPageSize 变量的话可以传进去；否则传 10
-    initialPage: page,
-    onClose,
-  });
-
-  render(vnode, container);
+async function openDetailModal(row: any, page = 1) {
+  detailPid.value = Number(row.pid ?? row.id ?? row._raw?.pid ?? 0);
+  detailPage.value = page;
+  detailModalVisible.value = true;
+  await fetchDetailPage();
 }
 
-// async function fetchDetailPage() {
-//   if (!detailPid.value) return;
-//   // 明确取出 sortType 并打印（必做）
-//   const sortType = Number(searchState?.sortType ?? 0);
-//   console.log('[debug] fetchDetailPage -> pid, page, sortType =', detailPid.value, detailPage.value, sortType);
-//
-//   detailLoading.value = true;
-//   try {
-//     // 确保 agentReqGameDetailRecord 实现能把 sortType 写入 body（见下方说明）
-//     const resp = await agentReqGameDetailRecord({
-//       pid: detailPid.value,
-//       pagNum: detailPage.value,
-//       showNum: detailPageSize.value,
-//       sortType, // <-- 一定要传这个
-//       requestPid: Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
-//     });
-//
-//     // 后端返回层次可能不一样，统一解析
-//     const payload = (resp && (resp.data ?? resp)) ?? {};
-//     // 假设后端返回： payload.listInfo 是一个 list，每个元素是一个回合（包含 time, roomKey, recordCode, listInfo/players）
-//     const rawList = payload.listInfo ?? payload.list ?? [];
-//
-//     // 把后端的结构标准化到 detailRecords 的结构： { time, roomKey, recordCode, players: [ {pid,name,headUrl,points} ] }
-//     detailRecords.value = (Array.isArray(rawList) ? rawList : []).map((round: any) => {
-//       const playersRaw = round.listInfo ?? round.players ?? [];
-//       return {
-//         time: round.time ?? round.date ?? '',
-//         roomKey: round.roomKey ?? round.roomKeyId ?? '',
-//         recordCode: round.recordCode ?? round.replayCode ?? '',
-//         players: (Array.isArray(playersRaw) ? playersRaw : []).map((p: any) => ({
-//           pid: Number(p.pid ?? p.id ?? 0),
-//           name: p.name ?? p.nickname ?? '',
-//           headUrl: p.headUrl ?? p.avatar ?? '',
-//           points: Number(p.points ?? p.score ?? 0),
-//         })),
-//       };
-//     });
-//
-//     detailTotalPages.value = Number(payload.totalPages ?? payload.totalPagesCount ?? payload.total ?? 1);
-//   } catch (err) {
-//     console.error('[debug] fetchDetailPage error', err);
-//     message.error('获取战绩明细失败');
-//   } finally {
-//     detailLoading.value = false;
-//   }
-// }
-//
-// // 翻页（弹窗内）
-// function onDetailPageChange(p: number) {
-//   detailPage.value = p;
-//   fetchDetailPage();
-// }
+async function fetchDetailPage() {
+  if (!detailPid.value) return;
+  // 明确取出 sortType 并打印（必做）
+  const sortType = Number(searchState?.sortType ?? 0);
+  console.log('[debug] fetchDetailPage -> pid, page, sortType =', detailPid.value, detailPage.value, sortType);
+
+  detailLoading.value = true;
+  try {
+    // 确保 agentReqGameDetailRecord 实现能把 sortType 写入 body（见下方说明）
+    const resp = await agentReqGameDetailRecord({
+      pid: detailPid.value,
+      pagNum: detailPage.value,
+      showNum: detailPageSize.value,
+      sortType, // <-- 一定要传这个
+      requestPid: Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
+    });
+
+    // 后端返回层次可能不一样，统一解析
+    const payload = (resp && (resp.data ?? resp)) ?? {};
+    // 假设后端返回： payload.listInfo 是一个 list，每个元素是一个回合（包含 time, roomKey, recordCode, listInfo/players）
+    const rawList = payload.listInfo ?? payload.list ?? [];
+
+    // 把后端的结构标准化到 detailRecords 的结构： { time, roomKey, recordCode, players: [ {pid,name,headUrl,points} ] }
+    detailRecords.value = (Array.isArray(rawList) ? rawList : []).map((round: any) => {
+      const playersRaw = round.listInfo ?? round.players ?? [];
+      return {
+        time: round.time ?? round.date ?? '',
+        roomKey: round.roomKey ?? round.roomKeyId ?? '',
+        recordCode: round.recordCode ?? round.replayCode ?? '',
+        players: (Array.isArray(playersRaw) ? playersRaw : []).map((p: any) => ({
+          pid: Number(p.pid ?? p.id ?? 0),
+          name: p.name ?? p.nickname ?? '',
+          headUrl: p.headUrl ?? p.avatar ?? '',
+          points: Number(p.points ?? p.score ?? 0),
+        })),
+      };
+    });
+
+    detailTotalPages.value = Number(payload.totalPages ?? payload.totalPagesCount ?? payload.total ?? 1);
+  } catch (err) {
+    console.error('[debug] fetchDetailPage error', err);
+    message.error('获取战绩明细失败');
+  } finally {
+    detailLoading.value = false;
+  }
+}
+
+// 翻页（弹窗内）
+function onDetailPageChange(p: number) {
+  detailPage.value = p;
+  fetchDetailPage();
+}
 
 
 // 初始 AGENT_PID（请求者 / 顶级 pid）
@@ -395,8 +370,63 @@ function viewChildrenFromActions(row: RowItem) {
 </script>
 
 <template>
+  <!-- 弹窗：战绩明细 -->
+  <Modal
+    v-model:open="detailModalVisible"
+    :title="'战绩明细 - PID: ' + (detailPid ?? '')"
+    :width="900"
+    :footer="null"
+  >
+    <div v-if="detailLoading" style="text-align:center; padding:20px;">加载中…</div>
 
+    <div v-else>
+      <div v-if="!detailRecords || detailRecords.length === 0" style="padding:20px; text-align:center; color:var(--vben-text-3)">暂无数据</div>
 
+      <div v-else>
+        <div v-for="(rec, idx) in detailRecords" :key="idx" style="border-bottom:1px solid rgba(255,255,255,0.03); padding:8px 0;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <strong>{{ rec.time || '—' }}</strong>
+              <span style="margin-left:12px">房间: {{ rec.roomKey || '—' }}</span>
+              <span style="margin-left:12px">回放码: {{ rec.recordCode || '—' }}</span>
+            </div>
+            <div>
+              <!-- 可添加“回放”按钮 / 链接 -->
+              <a v-if="rec.recordCode" :href="`/replay/${rec.recordCode}`" target="_blank">回放</a>
+            </div>
+          </div>
+
+          <table style="width:100%; margin-top:8px; border-collapse:collapse;">
+            <thead>
+            <tr style="text-align:left; color:var(--vben-text-3); font-weight:600;">
+              <th style="padding:6px 8px; width:80px">PID</th>
+              <th style="padding:6px 8px">头像</th>
+              <th style="padding:6px 8px">姓名</th>
+              <th style="padding:6px 8px">得分</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="p in rec.players" :key="p.pid">
+              <td style="padding:6px 8px">{{ p.pid }}</td>
+              <td style="padding:6px 8px">
+                <img v-if="p.headUrl" :src="p.headUrl" style="width:36px; height:36px; object-fit:cover; border-radius:4px" />
+              </td>
+              <td style="padding:6px 8px">{{ p.name }}</td>
+              <td style="padding:6px 8px">{{ p.points }}</td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 简单分页 -->
+        <div style="display:flex; justify-content:center; margin-top:12px;">
+          <a-button v-if="detailPage>1" @click="onDetailPageChange(detailPage-1)">上一页</a-button>
+          <div style="padding:0 12px; line-height:32px;">第 {{ detailPage }} / {{ detailTotalPages || 1 }} 页</div>
+          <a-button v-if="detailPage < (detailTotalPages || 1)" @click="onDetailPageChange(detailPage+1)">下一页</a-button>
+        </div>
+      </div>
+    </div>
+  </Modal>
   <Page auto-content-height>
     <Grid table-title="玩家战绩">
       <template #toolbar-tools>
@@ -432,7 +462,7 @@ function viewChildrenFromActions(row: RowItem) {
         </Select>
 
         <Button type="primary" @click="onSearch">search</Button>
-
+<!--        <Button type="default" @click="debugTest" style="margin-left:8px">🔧 DebugSort</Button>-->
 
         <div style="display:inline-flex; gap:12px; margin-left:16px; align-items:center;">
           <div>当前查询 pid: {{ currentTargetPid }}</div>
@@ -452,7 +482,7 @@ function viewChildrenFromActions(row: RowItem) {
       </template>
 
       <template #toolbar-tools-after>
-
+        <!-- 也可以在这里放你截图中的统计数字样式 -->
       </template>
 
       <template #avatar="{ row }">
@@ -464,7 +494,12 @@ function viewChildrenFromActions(row: RowItem) {
           {{ row.points }}
         </a>
       </template>
-
+<!--      <template #score="{ row }">-->
+<!--      -->
+<!--      </template>-->
+      <!-- 局数 合计 + 列名 两行形式 -->
+      <!-- 局数 合计 + 列名 两行形式，点击切换排序 -->
+      <!-- 替换 header-setCount 的 template -->
       <template #header-setCount>
         <div style="display:flex; flex-direction:column; align-items:center;">
           <div class="header-top-cell">总局数：{{ statState.sumSetCount }}</div>
@@ -480,6 +515,8 @@ function viewChildrenFromActions(row: RowItem) {
           </div>
         </div>
       </template>
+
+
       <template #header-bigWinnerCount>
         <div style="display:flex; flex-direction:column; align-items:center;">
           <div class="header-top-cell">总金币(大赢家数)：{{ statState.sumBigWinnerCount }}</div>
@@ -487,6 +524,7 @@ function viewChildrenFromActions(row: RowItem) {
           </div>
         </div>
       </template>
+
       <template #header-points>
         <div style="display:flex; flex-direction:column; align-items:center; cursor:pointer;"
              @click="() => { console.log('[debug] header-points clicked'); onHeaderSort('points') }">
@@ -501,6 +539,22 @@ function viewChildrenFromActions(row: RowItem) {
           </div>
         </div>
       </template>
+
+<!--      <template #action="{ row }">-->
+<!--        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">-->
+<!--          <MemberActions-->
+<!--            :row="row"-->
+<!--            @view-children="viewChildrenFromActions"-->
+<!--            @row-updated="(updated) => {-->
+<!--              // 合并更新-->
+<!--              Object.assign(row, updated);-->
+<!--              if (updated._raw) row._raw = Object.assign(row._raw || {}, updated._raw);-->
+<!--              if (typeof gridApi.updateRow === 'function') gridApi.updateRow(row as any);-->
+<!--            }"-->
+<!--          />-->
+
+<!--        </div>-->
+<!--      </template>-->
       <template #action="{ row }">
         <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
           <MemberActions

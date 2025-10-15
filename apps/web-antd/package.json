@@ -52,5 +52,8 @@
     "vue-router": "catalog:",
     "vxe-table": "catalog:",
     "xe-utils": "^3.7.9"
+  },
+  "devDependencies": {
+    "postcss-preset-env": "catalog:"
   }
 }

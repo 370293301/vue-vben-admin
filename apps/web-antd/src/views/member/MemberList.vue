@@ -7,7 +7,7 @@ import { Page } from '@vben/common-ui';
 import { Button, Image, Input, message, Select, Modal } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { apiGetMemberList,apiSetPromoter, apiSetRemark, apiSetRecommend, apiBanGame, apiSetRate } from '#/api/member';
+import { apiGetMemberList} from '#/api/member';
 const bannedCache: Record<number, boolean> = reactive({});
 
 // 搜索状态
@@ -49,12 +49,12 @@ const rateModalLoading = ref(false);
 const columns: VxeGridProps<any>['columns'] = [
   { field: 'id', title: '玩家ID' },
   { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
-  { field: 'name', title: '玩家名称' },
+  { field: 'name', title: '玩家名称',slots: { header: 'header-name' } },
   { field: 'nobleLevel', title: '贵族等级' },
-  { field: 'crystal', title: '剩余钻石' },
-  { field: 'gold', title: '剩余金豆' },
+  { field: 'crystal', title: '剩余钻石' ,slots: { header: 'header-crystal' }},
+  { field: 'gold', title: '剩余金豆' ,slots: { header: 'header-gold' }},
   { field: 'remark', title: '备注' },
-  { field: 'action', title: '操作', showOverflow: false, slots: { default: 'action' } },
+  { field: 'action', title: '操作', showOverflow: false, slots: { default: 'action' },width: 220,  },
 ];
 
 const gridOptions: VxeGridProps<any> = {
@@ -132,6 +132,12 @@ const gridOptions: VxeGridProps<any> = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid<any>({ gridOptions });
+
+
+console.log('[debug SFC] Grid, gridApi =>', Grid, gridApi);
+
+(window as any).__debug_Grid = Grid;
+(window as any).__debug_gridApi = gridApi;
 // 当 sort 变化时触发重新加载（保持在当前页）
 function onSortChange(v: number) {
   sortState.sortType = v;
@@ -169,400 +175,8 @@ function goBack() {
   // reload 表格（回到上级列表）
   gridApi.reload();
 }
-// 你现有的其他按钮处理保持不变...
-// async function setPromoter(row: any) {
-//   try {
-//     // 防重点击可以加一个 local flag
-//     (row as any).__promoterLoading = true;
-//
-//     // 请求者 id（谁在操作）
-//     const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
-//     const pid = Number(row._raw?.pid ?? row.id ?? 0);
-//     if (!pid) {
-//       message.warning('无效的玩家 pid，无法设置');
-//       (row as any).__promoterLoading = false;
-//       return;
-//     }
-//
-//     // 调用后端接口，type=0 表示设为推广员（按后端约定）
-//     const resp = await apiSetPromoter({ pid, type: 0, requestPid });
-//
-//     // 解析后端返回：兼容多种返回形式
-//     const result =
-//       resp?.data?.setResult ?? // 常见：{ setResult: true }
-//       resp?.data?.data?.setResult ?? // 另一个包层
-//       resp?.data?.result ?? // 偶见
-//       resp?.data; // 退而求其次
-//
-//     // 判断是否成功（请根据后端的真实返回结构调整判断条件）
-//     const ok =
-//       result === true ||
-//       (typeof result === 'object' && (result.setResult === true || result.setResult === 1)) ||
-//       (resp && (resp as any).code === 0);
-//
-//     if (ok) {
-//       message.success('设置为推广员成功');
-//
-//       // 临时修改当前行的数据（不请求整表）
-//       try {
-//         // 在 row._raw 中打个标记，方便后续查看/风格变化
-//         if (!row._raw) row._raw = {};
-//         row._raw.isPromoter = true;
-//         // 你也可以设置 role 字段或其他后端有的字段用于渲染
-//         row._raw.role_name = '推广员';
-//         // 同步映射字段（如果表格使用 row.nobleLevel/其它字段展示）
-//         // 例如把 nobleLevel 修改为 1（仅示例，按你实际字段）
-//         // row.nobleLevel = 1;
-//
-//         // 如果你的表格对 row 的直接修改不会立即生效，可强制触发 grid 刷新：
-//         // gridApi.updateRow?.(row) // 如果适配器有 updateRow API
-//         // 否则轻微 reload 当前页以保证视图更新：
-//         // gridApi.reload();
-//
-//       } catch (e) {
-//         console.warn('临时修改 row 失败', e);
-//       }
-//     } else {
-//       // 尝试解析后端错误信息
-//       const errMsg = resp?.data?.msg ?? resp?.data?.message ?? '设置失败（返回值不为 true）';
-//       message.error(errMsg);
-//     }
-//   } catch (e: any) {
-//     console.error('[setPromoter] error', e);
-//     message.error(e?.message || '设置推广员失败');
-//   } finally {
-//     (row as any).__promoterLoading = false;
-//   }
-// }
-// async function setRemark(row: any) {
-//   try {
-//     (row as any).__remarkLoading = true;
-//     const currentRemark = row._raw?.remark ?? row._raw?.setRemark ?? '';
-//     const remark = window.prompt('请输入备注内容：', String(currentRemark ?? ''));
-//     if (remark === null) {
-//       (row as any).__remarkLoading = false;
-//       return;
-//     }
-//     const trimmed = String(remark).trim();
-//     if (!trimmed) {
-//       message.warning('备注不能为空');
-//       (row as any).__remarkLoading = false;
-//       return;
-//     }
-//
-//     const pid = Number(row._raw?.pid ?? row.id ?? 0);
-//     if (!pid) {
-//       message.error('无效玩家 pid，无法设置备注');
-//       (row as any).__remarkLoading = false;
-//       return;
-//     }
-//
-//     const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
-//     const resp = await apiSetRemark({ pid, remark: trimmed, requestPid });
-//     const data = resp?.data ?? {};
-//     const setResult = data?.setResult ?? data?.data?.setResult ?? (data?.code === 0 ? true : undefined);
-//
-//     if (setResult === true) {
-//       message.success('设置备注成功');
-//
-//       // === 本地更新行数据（不 reload） ===
-//       // 把备注放到 row.remark（列 field: 'remark' 依赖这个字段）
-//       row.remark = data?.setRemark ?? trimmed;
-//       if (!row._raw) row._raw = {};
-//       row._raw.remark = data?.setRemark ?? trimmed;
-//
-//       // 尝试用适配器的局部更新方法（如果存在）
-//       try {
-//         // 有些 adapter 提供 updateRow / setRow 方法
-//         if (typeof gridApi.updateRow === 'function') {
-//           gridApi.updateRow(row);
-//         } else if (typeof gridApi.refreshRow === 'function') {
-//           gridApi.refreshRow(row);
-//         } else {
-//           // 最保守方式：触发一次小的 re-render（修改一个 reactive key）
-//           // 如果你有一个 reactive 状态可以触发 grid 重绘，这里可以用它；否则跳过
-//           // Example fallback: no-op
-//         }
-//       } catch (e) {
-//         console.warn('局部更新 row 失败：', e);
-//       }
-//
-//     } else {
-//       const errMsg = data?.msg ?? data?.message ?? '设置备注失败';
-//       message.error(errMsg);
-//     }
-//   } catch (err: any) {
-//     console.error('[setRemark] error', err);
-//     message.error(err?.message ?? '设置备注失败');
-//   } finally {
-//     (row as any).__remarkLoading = false;
-//   }
-// }
-//
-// // 新增：弹窗状态与选中的行
-// const showRecommendModal = ref(false);
-// const recommendIdInput = ref('');
-// const selectedRowForRecommend = ref<any>(null);
-// const modalLoading = ref(false);
-// // 把原来的 changeBelong(row) 改为打开弹窗
-// function changeBelong(row: any) {
-//   // 打开弹窗并把当前行缓存
-//   selectedRowForRecommend.value = row;
-//   // 如果行有已存在的 recommendId，填进去作为占位
-//   recommendIdInput.value = row._raw?.recommendId ? String(row._raw.recommendId) : '';
-//   showRecommendModal.value = true;
-// }
-//
-// // 确认弹窗后的实际调用
-// async function confirmRecommend() {
-//   if (!selectedRowForRecommend.value) {
-//     message.error('未选择玩家行');
-//     return;
-//   }
-//
-//   // 校验输入
-//   const rec = String(recommendIdInput.value ?? '').trim();
-//   if (rec.length === 0) {
-//     message.warning('请输入推荐者 ID');
-//     return;
-//   }
-//   const recommendId = Number(rec);
-//   if (Number.isNaN(recommendId) || recommendId <= 0) {
-//     message.warning('请输入有效的推荐者 ID（数字）');
-//     return;
-//   }
-//
-//   const pid = Number(selectedRowForRecommend.value._raw?.pid ?? selectedRowForRecommend.value.id ?? 0);
-//   if (!pid) {
-//     message.error('当前行无效的玩家 pid，无法修改');
-//     return;
-//   }
-//
-//   // requestPid 取当前 AGENT_PID 或 ACCOUNT_ID
-//   const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
-//   if (!requestPid) {
-//     message.error('未检测到当前 AGENT_PID，无法执行操作');
-//     return;
-//   }
-//
-//   try {
-//     modalLoading.value = true;
-//     const resp = await apiSetRecommend({ pid, recommendId, requestPid });
-//
-//     const data = resp?.data ?? {};
-//     const ok =
-//       data?.setResult === true ||
-//       data?.code === 0 ||
-//       (typeof data === 'boolean' && data === true);
-//
-//     if (ok) {
-//       message.success('从属修改成功');
-//
-//       // 局部更新行数据，避免整表刷新
-//       try {
-//         const row = selectedRowForRecommend.value;
-//         if (!row._raw) row._raw = {};
-//         row._raw.recommendId = recommendId;
-//         row._raw.familyId = recommendId; // 如果后端把从属字段存在 familyId 或类似，视情况设置
-//         // 若需要把表格列直接显示 pid/某字段，可同步修改 row.xxx：
-//         // row.someField = 新值
-//         // 尝试调用 gridApi 的更新方法（如果存在）
-//         if (typeof gridApi.updateRow === 'function') {
-//           gridApi.updateRow(row);
-//         } else if (typeof gridApi.refreshRow === 'function') {
-//           gridApi.refreshRow(row);
-//         }
-//       } catch (e) {
-//         console.warn('局部更新行失败', e);
-//       }
-//
-//       // 关闭弹窗
-//       showRecommendModal.value = false;
-//       selectedRowForRecommend.value = null;
-//       recommendIdInput.value = '';
-//     } else {
-//       const errMsg = data?.msg ?? data?.message ?? '从属修改失败';
-//       message.error(errMsg);
-//     }
-//   } catch (err: any) {
-//     console.error('[confirmRecommend] error', err);
-//     message.error(err?.message ?? '从属修改接口调用失败');
-//   } finally {
-//     modalLoading.value = false;
-//   }
-// }
-//
-// // 取消弹窗
-// function cancelRecommend() {
-//   showRecommendModal.value = false;
-//   selectedRowForRecommend.value = null;
-//   recommendIdInput.value = '';
-// }
-// async function freeze(row: any) {
-//   try {
-//     (row as any).__freezeLoading = true;
-//
-//     const pid = Number(row._raw?.pid ?? row.id ?? 0);
-//     if (!pid) {
-//       message.error('无效玩家 pid，无法操作');
-//       return;
-//     }
-//
-//     // 当前状态优先用行的 isBanned，再用缓存
-//     const currentlyBanned = !!(row._raw?.isBanned ?? row.isBanned ?? bannedCache[pid] ?? false);
-//
-//     // type: 1 冻结，0 解冻
-//     const type = currentlyBanned ? 0 : 1;
-//
-//     const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
-//     if (!requestPid) {
-//       message.error('未检测到 AGENT_PID，无法操作');
-//       return;
-//     }
-//
-//     const resp = await apiBanGame({ pid, type, requestPid });
-//     const data = resp?.data ?? {};
-//
-//     const ok =
-//       data?.setResult === true ||
-//       data?.code === 0 ||
-//       (typeof data === 'boolean' && data === true);
-//
-//     if (!ok) {
-//       const errMsg = data?.msg ?? data?.message ?? '操作失败';
-//       message.error(errMsg);
-//       return;
-//     }
-//
-//     // 成功：计算新状态（true 表示现在是被冻结）
-//     const newState = type === 1;
-//     // 写入本地缓存
-//     bannedCache[pid] = newState;
-//
-//     // 更新当前行（避免整表刷新）
-//     if (!row._raw) row._raw = {};
-//     row._raw.isBanned = newState;
-//     row.isBanned = newState;
-//
-//     message.success(newState ? '冻结成功' : '解冻成功');
-//
-//     // 尝试用适配器局部更新表格（如果存在）
-//     try {
-//       if (typeof gridApi.updateRow === 'function') {
-//         gridApi.updateRow(row);
-//       } else if (typeof gridApi.refreshRow === 'function') {
-//         gridApi.refreshRow(row);
-//       } else {
-//         // 不使用 gridApi.query()/reload()，因为那会用后端数据覆盖本地状态。
-//         // 如果没有局部更新函数，尽量通过微变动触发渲染：
-//         // 例如修改 row.remark（或任何非关键字段）来触发视图重绘（保留本地 isBanned）
-//         row._tmpRerender = (row._tmpRerender || 0) + 1;
-//       }
-//     } catch (e) {
-//       // fallback: 也不要强制 query()，因为那可能把后端旧值又覆盖回来
-//       console.warn('局部刷新失败', e);
-//     }
-//   } catch (err: any) {
-//     console.error('[freeze] error', err);
-//     message.error(err?.message ?? '冻结/解冻操作失败');
-//   } finally {
-//     (row as any).__freezeLoading = false;
-//   }
-// }
-//
-// // function adjustShare(row: any) { message.info(`调整充值分成比例：${row.id}`); }
-// // 打开弹窗（由操作列按钮触发）
-// function openRateModal(row: any) {
-//   selectedRowForRate.value = row;
-//   // 预填（若后端返回字段名不同请替换）
-//   rateInput.value = String(row._raw?.rate ?? row._raw?.setRate ?? '');
-//   showRateModal.value = true;
-// }
-//
-// // 确认修改比例
-// async function confirmRate() {
-//   if (!selectedRowForRate.value) {
-//     message.error('未选择玩家行');
-//     return;
-//   }
-//
-//   const r = String(rateInput.value ?? '').trim();
-//   if (r.length === 0) {
-//     message.warning('请输入比例值（0-100）');
-//     return;
-//   }
-//   const rateNum = Number(r);
-//   if (Number.isNaN(rateNum) || rateNum < 0 || rateNum > 100) {
-//     message.warning('比例必须是 0 到 100 的数字');
-//     return;
-//   }
-//
-//   const pid = Number(selectedRowForRate.value._raw?.pid ?? selectedRowForRate.value.id ?? 0);
-//   if (!pid) {
-//     message.error('当前行无效的玩家 pid，无法修改');
-//     return;
-//   }
-//
-//   const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
-//   if (!requestPid) {
-//     message.error('未检测到当前 AGENT_PID，无法执行操作');
-//     return;
-//   }
-//
-//   try {
-//     rateModalLoading.value = true;
-//     const resp = await apiSetRate({ pid, rate: rateNum, requestPid });
-//
-//     const data = resp?.data ?? {};
-//     // 后端返回风格可能不同，这里兼容几种情况
-//     const ok =
-//       data?.setResult === true ||
-//       data?.code === 0 ||
-//       (typeof data === 'boolean' && data === true) ||
-//       (data?.data && data.data.setResult === true);
-//
-//     if (ok) {
-//       message.success('设置分成比例成功');
-//
-//       // 局部更新行数据，避免全表刷新
-//       try {
-//         const row = selectedRowForRate.value;
-//         if (!row._raw) row._raw = {};
-//         row._raw.rate = rateNum;
-//         // 同步映射到表格字段（如果你在列里显示 field: 'rate' 或 remark 等）
-//         row.rate = rateNum;
-//
-//         // 适配器尝试局部刷新（按你 adapter 的 API）
-//         if (typeof gridApi.updateRow === 'function') {
-//           gridApi.updateRow(row);
-//         } else if (typeof gridApi.refreshRow === 'function') {
-//           gridApi.refreshRow(row);
-//         }
-//       } catch (e) {
-//         console.warn('局部更新 row 失败', e);
-//       }
-//
-//       // 关闭弹窗并清理
-//       showRateModal.value = false;
-//       selectedRowForRate.value = null;
-//       rateInput.value = '';
-//     } else {
-//       const errMsg = data?.msg ?? data?.message ?? '设置失败';
-//       message.error(errMsg);
-//     }
-//   } catch (err: any) {
-//     console.error('[confirmRate] error', err);
-//     message.error(err?.message ?? '设置分成比例失败');
-//   } finally {
-//     rateModalLoading.value = false;
-//   }
-// }
-//
-// function cancelRate() {
-//   showRateModal.value = false;
-//   selectedRowForRate.value = null;
-//   rateInput.value = '';
-// }
+
+
 </script>
 
 <template>
@@ -589,9 +203,9 @@ function goBack() {
         <!-- 显示统计 & 当前查询对象 -->
         <div style="display:inline-flex; gap:12px; margin-left:16px; align-items:center;">
           <div>当前查询 pid: {{ currentTargetPid }}</div>
-          <div>总人数: {{ stats.totalCount }}</div>
-          <div>总钻石: {{ stats.sumDiamond }}</div>
-          <div>总金豆: {{ stats.sumGold }}</div>
+<!--          <div>总人数: {{ stats.totalCount }}</div>-->
+<!--          <div>总钻石: {{ stats.sumDiamond }}</div>-->
+<!--          <div>总金豆: {{ stats.sumGold }}</div>-->
         </div>
 
         <div style="display: inline-flex; gap: 8px; margin-left: 16px">
@@ -599,7 +213,7 @@ function goBack() {
           <Button @click="() => gridApi.reload()">刷新并回到第一页</Button>
         </div>
         <div style="display:inline-flex; gap:12px; align-items:center;">
-          <div>当前查询 pid: {{ currentTargetPid }}</div>
+<!--          <div>当前查询 pid: {{ currentTargetPid }}</div>-->
           <Button
             v-if="pidStack.length > 0"
             type="default"
@@ -612,7 +226,21 @@ function goBack() {
 
 
       </template>
+      <!-- header slots: 在列头内渲染合计 + 列标题（两行） -->
+      <template #header-name>
+        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>
+        <div class="header-bottom-cell">玩家名称</div>
+      </template>
 
+      <template #header-crystal>
+        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>
+        <div class="header-bottom-cell">剩余钻石</div>
+      </template>
+
+      <template #header-gold>
+        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>
+        <div class="header-bottom-cell">剩余金豆</div>
+      </template>
       <template #avatar="{ row }">
         <Image :src="row.headImageUrl" :width="40" :height="40" />
       </template>
@@ -679,3 +307,27 @@ function goBack() {
 
   </Page>
 </template>
+<style scoped>
+.header-top-cell {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vben-text-2);
+  padding: 4px 8px;
+  text-align: center;
+}
+.header-bottom-cell {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 8px;
+  text-align: center;
+}
+/* 如果需要在顶部合计行靠左显示（例如 PID），可单独调整： */
+.header-top-cell:first-child { justify-content: flex-start; padding-left: 12px; }
+
+.op-wrap {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+</style>
