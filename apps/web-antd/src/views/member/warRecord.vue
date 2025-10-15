@@ -1,15 +1,27 @@
 <script lang="ts" setup>
-
-import MemberActions from '#/components/MemberActions.vue';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import { reactive, ref,createVNode,render} from 'vue';
+
+import { createVNode, reactive, ref, render } from 'vue';
+
 import { Page } from '@vben/common-ui';
-import { Button, DatePicker, Image, Input, message, Select, Modal } from 'ant-design-vue';
+
+import {
+  Button,
+  DatePicker,
+  Image,
+  Input,
+  message,
+  Select,
+} from 'ant-design-vue';
+
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 // <-- 请把此处替换为你实际的接口实现路径 -->
 import { agentReqGameRecord } from '#/api/game';
-const { RangePicker } = DatePicker;
-import DetailModalContent from './DetailModalContent.vue'; // 根据实际路径调整
+import MemberActions from '#/components/MemberActions.vue';
+
+import DetailModalContent from './DetailModalContent.vue';
+
+const { RangePicker } = DatePicker; // 根据实际路径调整
 
 // 弹窗状态
 // const detailModalVisible = ref(false);
@@ -31,22 +43,22 @@ function openDetailModal(row: any, page = 1) {
 
   // container 挂到 body
   const container = document.createElement('div');
-  document.body.appendChild(container);
+  document.body.append(container);
 
   // onClose: 卸载 vnode 并移除 container
   function onClose() {
     try {
       render(null, container);
-      if (container.parentNode) container.parentNode.removeChild(container);
-    } catch (e) {
-      console.warn('closing modal render error', e);
+      if (container.parentNode) container.remove();
+    } catch (error) {
+      console.warn('closing modal render error', error);
     }
   }
 
   // create vnode 并 render
   const vnode = createVNode(DetailModalContent, {
     pid,
-    pageSize: detailPageSize,      // 你页面里已有 detailPageSize 变量的话可以传进去；否则传 10
+    pageSize: detailPageSize, // 你页面里已有 detailPageSize 变量的话可以传进去；否则传 10
     initialPage: page,
     onClose,
   });
@@ -107,9 +119,10 @@ function openDetailModal(row: any, page = 1) {
 //   fetchDetailPage();
 // }
 
-
 // 初始 AGENT_PID（请求者 / 顶级 pid）
-const AGENT_PID = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+const AGENT_PID = Number(
+  localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0,
+);
 
 // 记录列的本地排序状态：0 = 无, 1 = 降序, 2 = 升序
 const colSortState = reactive({
@@ -118,28 +131,43 @@ const colSortState = reactive({
 });
 function debugTest() {
   console.log('[debug] debugTest called. gridApi:', gridApi);
-  console.log('[debug] colSortState before:', JSON.parse(JSON.stringify(colSortState)));
+  console.log(
+    '[debug] colSortState before:',
+    JSON.parse(JSON.stringify(colSortState)),
+  );
   // 直接触发一次排序函数，观察日志和网络
   onHeaderSort('setCount');
 }
 // 点击自定义表头时切换 sort 并触发 gridApi.reload()
-function onHeaderSort(col: 'setCount' | 'points') {
+function onHeaderSort(col: 'points' | 'setCount') {
   // 切换本地UI状态
   colSortState[col] = (colSortState[col] + 1) % 3;
-  const order = colSortState[col] === 1 ? 'desc' : colSortState[col] === 2 ? 'asc' : undefined;
+  const order =
+    colSortState[col] === 1
+      ? 'desc'
+      : colSortState[col] === 2
+        ? 'asc'
+        : undefined;
 
   // 保持 searchState.sortType（以备后端兼容）
   if (col === 'setCount') {
-    searchState.sortType = colSortState.setCount === 1 ? 1 : colSortState.setCount === 2 ? 2 : 0;
+    searchState.sortType =
+      colSortState.setCount === 1 ? 1 : colSortState.setCount === 2 ? 2 : 0;
     colSortState.points = 0;
   } else {
-    searchState.sortType = colSortState.points === 1 ? 3 : colSortState.points === 2 ? 4 : 0;
+    searchState.sortType =
+      colSortState.points === 1 ? 3 : colSortState.points === 2 ? 4 : 0;
     colSortState.setCount = 0;
   }
 
   const sorts = order ? [{ field: col, order }] : [];
 
-  console.log('[debug] onHeaderSort ->', { col, colSortState: JSON.parse(JSON.stringify(colSortState)), sorts, sortType: searchState.sortType });
+  console.log('[debug] onHeaderSort ->', {
+    col,
+    colSortState: JSON.parse(JSON.stringify(colSortState)),
+    sorts,
+    sortType: searchState.sortType,
+  });
 
   // 优先用 query({ sorts }) 传入 adapter；如果不支持，fallback 用 reload（并依赖 searchState.sortType）
   if (gridApi && typeof (gridApi as any).query === 'function') {
@@ -147,22 +175,26 @@ function onHeaderSort(col: 'setCount' | 'points') {
     return;
   }
 
-  console.warn('[debug] gridApi.query not available, falling back to reload with searchState.sortType', gridApi);
+  console.warn(
+    '[debug] gridApi.query not available, falling back to reload with searchState.sortType',
+    gridApi,
+  );
   if (gridApi && typeof (gridApi as any).reload === 'function') {
     // reload 不带 sorts，但你的 ajax 中有 finalSortType 会读取 searchState.sortType
     (gridApi as any).reload();
     return;
   }
 
-  console.error('[debug] gridApi unavailable - cannot trigger query/reload', gridApi);
+  console.error(
+    '[debug] gridApi unavailable - cannot trigger query/reload',
+    gridApi,
+  );
 }
-
-
 
 // 顶部筛选状态
 const searchState = reactive({
   dateRange: [] as any[],
-  field: 'uid' as 'uid' | 'nickname',
+  field: 'uid' as 'nickname' | 'uid',
   keyword: '',
   sortType: 0, // 0 默认、1 钻石 ↓、2 钻石 ↑、3 金豆 ↓、4 金豆 ↑ （复用你定义的含义）
   pageSize: 10,
@@ -187,7 +219,7 @@ interface RowItem {
   points?: number;
 }
 const columns: VxeGridProps<RowItem>['columns'] = [
-  { field: 'pid', title: 'PID'},
+  { field: 'pid', title: 'PID' },
   {
     field: 'headUrl',
     title: '头像',
@@ -195,12 +227,18 @@ const columns: VxeGridProps<RowItem>['columns'] = [
   },
   { field: 'level', title: '身份' },
   { field: 'name', title: '玩家名称' },
-  { field: 'setCount', title: '局数',
+  {
+    field: 'setCount',
+    title: '局数',
     sortable: false, // 使用自定义排序
-    slots: { header: 'header-setCount' } },
-  { field: 'bigWinnerCount', title: '大赢家',
+    slots: { header: 'header-setCount' },
+  },
+  {
+    field: 'bigWinnerCount',
+    title: '大赢家',
     sortable: false,
-    slots: { header: 'header-bigWinnerCount' } },
+    slots: { header: 'header-bigWinnerCount' },
+  },
   {
     field: 'points',
     title: '战绩得分',
@@ -214,7 +252,7 @@ const columns: VxeGridProps<RowItem>['columns'] = [
   {
     field: 'action',
     title: '操作',
-    width: 220,          // <- 必须给一个明确值（根据按钮数量调整）
+    width: 220, // <- 必须给一个明确值（根据按钮数量调整）
     showOverflow: false,
     fixed: 'right',
     slots: { default: 'action' },
@@ -231,7 +269,11 @@ const gridOptions: VxeGridProps<RowItem> = {
   height: 'auto',
   border: true,
   stripe: true,
-  pagerConfig: { currentPage: 1, pageSize: searchState.pageSize, pageSizes: [10, 20, 50, 100] },
+  pagerConfig: {
+    currentPage: 1,
+    pageSize: searchState.pageSize,
+    pageSizes: [10, 20, 50, 100],
+  },
   toolbarConfig: {
     custom: true,
     export: false,
@@ -245,21 +287,33 @@ const gridOptions: VxeGridProps<RowItem> = {
         // sorts 可能类似 [{ field:'points', order:'asc' }] 或你的 adapter 格式
         console.log('[debug] query called', { page, sorts });
         // 先把 adapter 传来的 sorts 映射成后端约定的 sortType（如果有）
-        const sortObj = (Array.isArray(sorts) && sorts[0]) ? sorts[0] : null;
+        const sortObj = Array.isArray(sorts) && sorts[0] ? sorts[0] : null;
         let mappedSortType = 0; // 默认
         if (sortObj) {
-          if (sortObj.field === 'setCount') {
-            mappedSortType = sortObj.order === 'desc' ? 1 : 2;
-          } else if (sortObj.field === 'points') {
-            mappedSortType = sortObj.order === 'desc' ? 3 : 4;
-          } else if (sortObj.field === 'bigWinnerCount') {
-            // 如果后端支持大赢家排序可以映射，这里留空或自定义
-            // mappedSortType = sortObj.order === 'desc' ? 5 : 6;
+          switch (sortObj.field) {
+            case 'bigWinnerCount': {
+              // 如果后端支持大赢家排序可以映射，这里留空或自定义
+              // mappedSortType = sortObj.order === 'desc' ? 5 : 6;
+
+              break;
+            }
+            case 'points': {
+              mappedSortType = sortObj.order === 'desc' ? 3 : 4;
+
+              break;
+            }
+            case 'setCount': {
+              mappedSortType = sortObj.order === 'desc' ? 1 : 2;
+
+              break;
+            }
+            // No default
           }
         }
 
         // 最终使用哪一个 sortType：优先使用 adapter 的 mappedSortType（非 0），否则使用 UI 状态 searchState.sortType
-        const finalSortType = mappedSortType !== 0 ? mappedSortType : (searchState.sortType ?? 0);
+        const finalSortType =
+          mappedSortType === 0 ? (searchState.sortType ?? 0) : mappedSortType;
 
         const [startDate, endDate] = searchState.dateRange ?? [];
         const params = {
@@ -270,8 +324,14 @@ const gridOptions: VxeGridProps<RowItem> = {
           sortType: finalSortType, // <- 这里使用 finalSortType（修复点）
           startDate,
           endDate,
-          pid: currentTargetPid?.value ?? Number(localStorage.getItem('AGENT_PID') ?? 0),
-          requestPid: Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
+          pid:
+            currentTargetPid?.value ??
+            Number(localStorage.getItem('AGENT_PID') ?? 0),
+          requestPid: Number(
+            localStorage.getItem('AGENT_PID') ??
+              localStorage.getItem('ACCOUNT_ID') ??
+              0,
+          ),
         };
 
         console.log('[debug] warRecord.query -> sending params:', params);
@@ -279,8 +339,8 @@ const gridOptions: VxeGridProps<RowItem> = {
         let res;
         try {
           res = await agentReqGameRecord(params);
-        } catch (err) {
-          console.error('[debug] agentReqGameRecord request failed', err);
+        } catch (error) {
+          console.error('[debug] agentReqGameRecord request failed', error);
           message.error('查询失败，请检查网络或控制台');
           return { items: [], total: 0 };
         }
@@ -304,15 +364,30 @@ const gridOptions: VxeGridProps<RowItem> = {
         // console.log('[debug] resolved rawList (length):', Array.isArray(rawList) ? rawList.length : 'not array', rawList);
 
         // 统计字段（如果接口返回）
-        statState.sumSetCount = Number(payload.sumSetCount ?? payload.sum_set_count ?? statState.sumSetCount ?? 0);
-        statState.sumBigWinnerCount = Number(payload.sumBigWinnerCount ?? payload.sum_big_winner_count ?? statState.sumBigWinnerCount ?? 0);
-        statState.sumPoints = Number(payload.sumPoints ?? payload.sum_points ?? statState.sumPoints ?? 0);
+        statState.sumSetCount = Number(
+          payload.sumSetCount ??
+            payload.sum_set_count ??
+            statState.sumSetCount ??
+            0,
+        );
+        statState.sumBigWinnerCount = Number(
+          payload.sumBigWinnerCount ??
+            payload.sum_big_winner_count ??
+            statState.sumBigWinnerCount ??
+            0,
+        );
+        statState.sumPoints = Number(
+          payload.sumPoints ?? payload.sum_points ?? statState.sumPoints ?? 0,
+        );
 
         // total 处理（优先后端给的 total / totalPages）
         let total = 0;
         if (typeof payload.total === 'number') {
           total = payload.total;
-        } else if (typeof payload.totalPages === 'number' && payload.totalPages > 0) {
+        } else if (
+          typeof payload.totalPages === 'number' &&
+          payload.totalPages > 0
+        ) {
           total = payload.totalPages * page.pageSize;
         } else if (Array.isArray(rawList)) {
           total = rawList.length;
@@ -321,8 +396,13 @@ const gridOptions: VxeGridProps<RowItem> = {
         // 映射字段：注意 field 名和 columns 对齐（例子用 pid/headUrl/name/setCount/bigWinnerCount/points/remark）
         const list = (Array.isArray(rawList) ? rawList : []).map((it: any) => {
           const pid = Number(it.pid ?? it.id ?? 0);
-          const isBannedFromServer = typeof it.isBanned !== 'undefined' ? !!it.isBanned : (typeof it.banned !== 'undefined' ? !!it.banned : undefined);
-          const isBanned = typeof isBannedFromServer === 'boolean' ? isBannedFromServer : false;
+          const isBannedFromServer = ('banned' in it)
+            ? !!it.banned
+            : ('isBanned' in it ? !!it.isBanned : undefined);
+          const isBanned =
+            typeof isBannedFromServer === 'boolean'
+              ? isBannedFromServer
+              : false;
 
           return {
             pid,
@@ -330,11 +410,13 @@ const gridOptions: VxeGridProps<RowItem> = {
             name: it.name ?? it.nickname ?? '',
             level: it.level ?? it.nobleLevel ?? 0,
             setCount: Number(it.setCount ?? it.set_count ?? it.rounds ?? 0),
-            bigWinnerCount: Number(it.bigWinnerCount ?? it.big_winner_count ?? it.bigWinner ?? 0),
+            bigWinnerCount: Number(
+              it.bigWinnerCount ?? it.big_winner_count ?? it.bigWinner ?? 0,
+            ),
             points: Number(it.points ?? it.score ?? 0),
             remark: it.remark ?? it.setRemark ?? '',
             // 把后端原始数据和标准化字段放进 _raw，保证 MemberActions 能读取 pid/isBanned 等
-            _raw: { ...(it ?? {}), pid, isBanned },
+            _raw: { ...it, pid, isBanned },
             isBanned,
           };
         });
@@ -351,9 +433,9 @@ const gridOptions: VxeGridProps<RowItem> = {
 const [Grid, gridApi] = useVbenVxeGrid<RowItem>({ gridOptions });
 console.log('[debug in SFC] Grid, gridApi =>', Grid, gridApi);
 // 为了在浏览器 console 调试也能访问，临时挂到 window
-//（开发调试用，发布前删掉）
-;(window as any).__debug_Grid = Grid;
-;(window as any).__debug_gridApi = gridApi;
+// （开发调试用，发布前删掉）
+(window as any).__debug_Grid = Grid;
+(window as any).__debug_gridApi = gridApi;
 // console.log('MemberActions is', MemberActions);
 // console.log('Grid component (after init) is', Grid);
 // console.log('gridApi available:', typeof gridApi);
@@ -382,7 +464,7 @@ function viewChildren(row: RowItem) {
 
 // 返回上级
 function goBack() {
-  if (!pidStack.value.length) return;
+  if (pidStack.value.length === 0) return;
   const prev = pidStack.value.pop() as number;
   currentTargetPid.value = prev;
   gridApi.reload();
@@ -395,8 +477,6 @@ function viewChildrenFromActions(row: RowItem) {
 </script>
 
 <template>
-
-
   <Page auto-content-height>
     <Grid table-title="玩家战绩">
       <template #toolbar-tools>
@@ -406,7 +486,10 @@ function viewChildrenFromActions(row: RowItem) {
           :placeholder="['开始日期', '结束日期']"
           allow-clear
         />
-        <Select v-model:value="searchState.field" style="width: 120px; margin-right: 8px">
+        <Select
+          v-model:value="searchState.field"
+          style="width: 120px; margin-right: 8px"
+        >
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
         </Select>
@@ -416,7 +499,11 @@ function viewChildrenFromActions(row: RowItem) {
           allow-clear
           style="width: 220px; margin-right: 8px"
         />
-        <Select v-model:value="searchState.sortType" @change="onSortChange" style="width: 140px; margin-right: 8px">
+        <Select
+          v-model:value="searchState.sortType"
+          @change="onSortChange"
+          style="width: 140px; margin-right: 8px"
+        >
           <Select.Option :value="0">默认排序</Select.Option>
           <Select.Option :value="1">钻石 ↓</Select.Option>
           <Select.Option :value="2">钻石 ↑</Select.Option>
@@ -424,7 +511,11 @@ function viewChildrenFromActions(row: RowItem) {
           <Select.Option :value="4">金豆 ↑</Select.Option>
         </Select>
 
-        <Select v-model:value="searchState.pageSize" @change="() => gridApi.reload()" style="width: 120px; margin-right: 8px">
+        <Select
+          v-model:value="searchState.pageSize"
+          @change="() => gridApi.reload()"
+          style="width: 120px; margin-right: 8px"
+        >
           <Select.Option :value="10">10 / 页</Select.Option>
           <Select.Option :value="20">20 / 页</Select.Option>
           <Select.Option :value="50">50 / 页</Select.Option>
@@ -433,8 +524,14 @@ function viewChildrenFromActions(row: RowItem) {
 
         <Button type="primary" @click="onSearch">search</Button>
 
-
-        <div style="display:inline-flex; gap:12px; margin-left:16px; align-items:center;">
+        <div
+          style="
+            display: inline-flex;
+            gap: 12px;
+            align-items: center;
+            margin-left: 16px;
+          "
+        >
           <div>当前查询 pid: {{ currentTargetPid }}</div>
           <div>总局数: {{ statState.sumSetCount }}</div>
           <div>总金币(大赢家数): {{ statState.sumBigWinnerCount }}</div>
@@ -446,83 +543,109 @@ function viewChildrenFromActions(row: RowItem) {
           <Button @click="() => gridApi.reload()">刷新并回到第一页</Button>
         </div>
 
-        <div style="margin-left: 12px;">
+        <div style="margin-left: 12px">
           <Button v-if="pidStack.length > 0" @click="goBack">返回上级</Button>
         </div>
       </template>
 
-      <template #toolbar-tools-after>
-
-      </template>
+      <template #toolbar-tools-after> </template>
 
       <template #avatar="{ row }">
         <Image :src="row.headUrl" :width="36" :height="36" />
       </template>
 
       <template #score="{ row }">
-        <a @click.prevent="openDetailModal(row)" style="font-weight:600; text-decoration:underline; cursor:pointer;">
+        <a
+          @click.prevent="openDetailModal(row)"
+          style="font-weight: 600; text-decoration: underline; cursor: pointer"
+        >
           {{ row.points }}
         </a>
       </template>
 
       <template #header-setCount>
-        <div style="display:flex; flex-direction:column; align-items:center;">
+        <div style="display: flex; flex-direction: column; align-items: center">
           <div class="header-top-cell">总局数：{{ statState.sumSetCount }}</div>
           <div class="header-bottom-cell">
             局数
-            <span style="margin-left:8px; display:inline-flex; gap:6px;">
-        <button @click.stop="() => onHeaderSort('setCount')" style="background:none;border:0;cursor:pointer;padding:0;">
-          <span v-if="colSortState.setCount === 1">▼</span>
-          <span v-else-if="colSortState.setCount === 2">▲</span>
-          <span v-else>◢</span>
-        </button>
-      </span>
+            <span style="display: inline-flex; gap: 6px; margin-left: 8px">
+              <button
+                @click.stop="() => onHeaderSort('setCount')"
+                style="padding: 0; cursor: pointer; background: none; border: 0"
+              >
+                <span v-if="colSortState.setCount === 1">▼</span>
+                <span v-else-if="colSortState.setCount === 2">▲</span>
+                <span v-else>◢</span>
+              </button>
+            </span>
           </div>
         </div>
       </template>
       <template #header-bigWinnerCount>
-        <div style="display:flex; flex-direction:column; align-items:center;">
-          <div class="header-top-cell">总金币(大赢家数)：{{ statState.sumBigWinnerCount }}</div>
-          <div class="header-bottom-cell">大赢家
+        <div style="display: flex; flex-direction: column; align-items: center">
+          <div class="header-top-cell">
+            总金币(大赢家数)：{{ statState.sumBigWinnerCount }}
           </div>
+          <div class="header-bottom-cell">大赢家</div>
         </div>
       </template>
       <template #header-points>
-        <div style="display:flex; flex-direction:column; align-items:center; cursor:pointer;"
-             @click="() => { console.log('[debug] header-points clicked'); onHeaderSort('points') }">
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+          "
+          @click="
+            () => {
+              console.log('[debug] header-points clicked');
+              onHeaderSort('points');
+            }
+          "
+        >
           <div class="header-top-cell">总分数：{{ statState.sumPoints }}</div>
           <div class="header-bottom-cell">
             战绩得分
-            <span style="margin-left:6px;">
-        <span v-if="colSortState.points === 1">▼</span>
-        <span v-else-if="colSortState.points === 2">▲</span>
-        <span v-else>◢</span>
-      </span>
+            <span style="margin-left: 6px">
+              <span v-if="colSortState.points === 1">▼</span>
+              <span v-else-if="colSortState.points === 2">▲</span>
+              <span v-else>◢</span>
+            </span>
           </div>
         </div>
       </template>
       <template #action="{ row }">
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <div
+          style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+          "
+        >
           <MemberActions
             :row="row"
             @view-children="() => viewChildren(row)"
-            @row-updated="(updated) => {
-        // 合并更新字段回 row（包括 _raw）
-        Object.assign(row, updated);
-        if (updated._raw) {
-          row._raw = Object.assign(row._raw || {}, updated._raw);
-        }
+            @row-updated="
+              (updated) => {
+                // 合并更新字段回 row（包括 _raw）
+                Object.assign(row, updated);
+                if (updated._raw) {
+                  row._raw = Object.assign(row._raw || {}, updated._raw);
+                }
 
-        // 局部刷新：优先用适配器提供的 updateRow / refreshRow
-        if (typeof gridApi.updateRow === 'function') {
-          gridApi.updateRow(row);
-        } else if (typeof gridApi.refreshRow === 'function') {
-          gridApi.refreshRow(row);
-        } else {
-          // Fallback: 轻触发重渲染
-          row._tmpRerender = (row._tmpRerender || 0) + 1;
-        }
-      }"
+                // 局部刷新：优先用适配器提供的 updateRow / refreshRow
+                if (typeof gridApi.updateRow === 'function') {
+                  gridApi.updateRow(row);
+                } else if (typeof gridApi.refreshRow === 'function') {
+                  gridApi.refreshRow(row);
+                } else {
+                  // Fallback: 轻触发重渲染
+                  row._tmpRerender = (row._tmpRerender || 0) + 1;
+                }
+              }
+            "
           />
         </div>
       </template>
@@ -531,33 +654,51 @@ function viewChildrenFromActions(row: RowItem) {
 </template>
 
 <style scoped>
+/* 窄屏时调整：隐藏底部（列名）以节省高度，但保留合计（top），并缩小 top 字体 */
+@media (max-width: 900px) {
+  /* .header-bottom-cell { display: none; } */
+  .header-top-cell {
+    display: none;
+
+    /* font-size: 11px; */
+
+    /* white-space: normal;      !* 允许换行显示合计内容 *! */
+
+    /* padding: 2px 4px; */
+  }
+}
+
 .stat-bar {
   display: inline-flex;
   gap: 40px;
   margin-left: 24px;
   vertical-align: middle;
 }
+
 .stat-item {
   min-width: 40px;
   font-size: 18px;
   font-weight: 600;
   text-align: center;
 }
+
 .score-link {
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
 }
+
 /* ---------- header 双行样式（替换旧规则） ---------- */
 .header-top-cell,
 .header-bottom-cell {
   display: block;
   padding: 2px 6px;
-  line-height: 1.1;
-  white-space: normal;        /* allow wrapping instead of forcing single line */
   overflow: visible;
-  /*text-overflow: clip;*/
+  line-height: 1.1;
+
+  /* text-overflow: clip; */
   text-align: center;
+  white-space: normal; /* allow wrapping instead of forcing single line */
 }
 
 /* top 小号字体，保留可见性 */
@@ -573,24 +714,14 @@ function viewChildrenFromActions(row: RowItem) {
   font-weight: 700;
 }
 
-/* 窄屏时调整：隐藏底部（列名）以节省高度，但保留合计（top），并缩小 top 字体 */
-@media (max-width: 900px) {
-  /*.header-bottom-cell { display: none; }*/
-  .header-top-cell {
-    display: none;
-    /*font-size: 11px;*/
-    /*white-space: normal;      !* 允许换行显示合计内容 *!*/
-    /*padding: 2px 4px;*/
-  }
-}
-
 /* 当表格列非常窄时，允许单元格内文字换行（防止被 entirely hidden） */
+
 /* 选择器根据 vxe-table DOM 结构可能略有不同，下面匹配常见类 */
 .vxe-table .vxe-body--row td,
 .vxe-table .vxe-header--row th {
-  white-space: normal !important;
   word-break: break-word !important;
   overflow-wrap: anywhere !important;
+  white-space: normal !important;
 }
 
 /* 如果你之前写过把 header-top-cell 隐藏的规则（例如 @media (max-width:1000px) .header-top-cell {display:none}）请删除它 */

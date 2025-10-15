@@ -1,18 +1,21 @@
 <script lang="ts" setup>
-import MemberActions from '#/components/MemberActions.vue';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+
 import { reactive, ref } from 'vue';
+
 import { Page } from '@vben/common-ui';
 
-import { Button, Image, Input, message, Select, Modal } from 'ant-design-vue';
+import { Button, Image, Input, message, Modal, Select } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { apiGetMemberList} from '#/api/member';
+import { apiGetMemberList } from '#/api/member';
+import MemberActions from '#/components/MemberActions.vue';
+
 const bannedCache: Record<number, boolean> = reactive({});
 
 // 搜索状态
 const searchState = reactive({
-  field: 'uid' as 'uid' | 'nickname',
+  field: 'uid' as 'nickname' | 'uid',
   keyword: '',
 });
 // 排序状态：0 默认、1 钻石降序、2 钻石升序、3 金豆降序、4 金豆升序
@@ -29,7 +32,11 @@ const sortOptions = [
 // 当前查询的目标 pid（用于“查看下级”功能）
 // 初始为 AGENT_PID 或 ACCOUNT_ID（谁在请求）
 const currentTargetPid = ref<number>(
-  Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0)
+  Number(
+    localStorage.getItem('AGENT_PID') ??
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
+  ),
 );
 // pid 历史栈：用于返回上一级
 const pidStack = ref<number[]>([]);
@@ -49,12 +56,18 @@ const rateModalLoading = ref(false);
 const columns: VxeGridProps<any>['columns'] = [
   { field: 'id', title: '玩家ID' },
   { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
-  { field: 'name', title: '玩家名称',slots: { header: 'header-name' } },
+  { field: 'name', title: '玩家名称', slots: { header: 'header-name' } },
   { field: 'nobleLevel', title: '贵族等级' },
-  { field: 'crystal', title: '剩余钻石' ,slots: { header: 'header-crystal' }},
-  { field: 'gold', title: '剩余金豆' ,slots: { header: 'header-gold' }},
+  { field: 'crystal', title: '剩余钻石', slots: { header: 'header-crystal' } },
+  { field: 'gold', title: '剩余金豆', slots: { header: 'header-gold' } },
   { field: 'remark', title: '备注' },
-  { field: 'action', title: '操作', showOverflow: false, slots: { default: 'action' },width: 220,  },
+  {
+    field: 'action',
+    title: '操作',
+    showOverflow: false,
+    slots: { default: 'action' },
+    width: 220,
+  },
 ];
 
 const gridOptions: VxeGridProps<any> = {
@@ -79,7 +92,10 @@ const gridOptions: VxeGridProps<any> = {
           keyword: params.keyword,
           page: params.page,
           pageSize: params.pageSize,
-          extra: { targetPid: currentTargetPid.value,sortType: sortState.sortType  },
+          extra: {
+            targetPid: currentTargetPid.value,
+            sortType: sortState.sortType,
+          },
         });
 
         const payload = res?.data?.data ?? {};
@@ -96,7 +112,10 @@ const gridOptions: VxeGridProps<any> = {
           total = (payload as any).total;
         } else if (payload.totalPages === 1) {
           total = Array.isArray(rawList) ? rawList.length : 0;
-        } else if (typeof payload.totalPages === 'number' && payload.totalPages > 1) {
+        } else if (
+          typeof payload.totalPages === 'number' &&
+          payload.totalPages > 1
+        ) {
           total = payload.totalPages * page.pageSize;
         } else {
           total = Array.isArray(rawList) ? rawList.length : 0;
@@ -107,10 +126,19 @@ const gridOptions: VxeGridProps<any> = {
         const list = (rawList as any[]).map((it) => {
           const pid = Number(it.pid ?? it.id ?? 0);
           // 优先读取后端字段（it.isBanned / it.banned），若没有则使用本地缓存 bannedCache[pid]
-          const isBannedFromServer = (typeof it.isBanned !== 'undefined') ? !!it.isBanned
-            : (typeof it.banned !== 'undefined') ? !!it.banned
-              : undefined;
-          const isBanned = typeof isBannedFromServer === 'boolean' ? isBannedFromServer : !!bannedCache[pid];
+          // const isBannedFromServer =
+          //   it.isBanned === undefined
+          //     ? it.banned === undefined
+          //       ? undefined
+          //       : !!it.banned)
+          //     : !!it.isBanned;
+          const isBannedFromServer = ('banned' in it)
+            ? !!it.banned
+            : ('isBanned' in it ? !!it.isBanned : undefined);
+          const isBanned =
+            typeof isBannedFromServer === 'boolean'
+              ? isBannedFromServer
+              : !!bannedCache[pid];
 
           return {
             id: pid,
@@ -132,7 +160,6 @@ const gridOptions: VxeGridProps<any> = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid<any>({ gridOptions });
-
 
 console.log('[debug SFC] Grid, gridApi =>', Grid, gridApi);
 
@@ -166,7 +193,7 @@ function viewChildren(row: any) {
 }
 // 返回上级：弹出栈顶，把 pid 设回并 reload
 function goBack() {
-  if (!pidStack.value.length) return;
+  if (pidStack.value.length === 0) return;
 
   // 弹出上级 pid
   const prev = pidStack.value.pop() as number;
@@ -175,56 +202,71 @@ function goBack() {
   // reload 表格（回到上级列表）
   gridApi.reload();
 }
-
-
 </script>
 
 <template>
   <Page auto-content-height>
     <Grid table-title="玩家列表">
       <template #toolbar-tools>
-        <Select v-model:value="searchState.field" style="width: 120px; margin-right: 8px">
+        <Select
+          v-model:value="searchState.field"
+          style="width: 120px; margin-right: 8px"
+        >
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
         </Select>
-        <Input v-model:value="searchState.keyword" placeholder="搜索内容" allow-clear style="width: 220px; margin-right: 8px"/>
+        <Input
+          v-model:value="searchState.keyword"
+          placeholder="搜索内容"
+          allow-clear
+          style="width: 220px; margin-right: 8px"
+        />
         <!-- 新增：排序选择 -->
         <Select
           v-model:value="sortState.sortType"
           @change="onSortChange"
-          style="width: 140px; margin-right:8px"
+          style="width: 140px; margin-right: 8px"
         >
-          <Select.Option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+          <Select.Option
+            v-for="opt in sortOptions"
+            :key="opt.value"
+            :value="opt.value"
+          >
             {{ opt.label }}
           </Select.Option>
         </Select>
         <Button type="primary" @click="() => gridApi.query()">search</Button>
 
         <!-- 显示统计 & 当前查询对象 -->
-        <div style="display:inline-flex; gap:12px; margin-left:16px; align-items:center;">
+        <div
+          style="
+            display: inline-flex;
+            gap: 12px;
+            align-items: center;
+            margin-left: 16px;
+          "
+        >
           <div>当前查询 pid: {{ currentTargetPid }}</div>
-<!--          <div>总人数: {{ stats.totalCount }}</div>-->
-<!--          <div>总钻石: {{ stats.sumDiamond }}</div>-->
-<!--          <div>总金豆: {{ stats.sumGold }}</div>-->
+          <!--          <div>总人数: {{ stats.totalCount }}</div>-->
+          <!--          <div>总钻石: {{ stats.sumDiamond }}</div>-->
+          <!--          <div>总金豆: {{ stats.sumGold }}</div>-->
         </div>
 
         <div style="display: inline-flex; gap: 8px; margin-left: 16px">
           <Button @click="() => gridApi.query()">刷新当前页</Button>
           <Button @click="() => gridApi.reload()">刷新并回到第一页</Button>
         </div>
-        <div style="display:inline-flex; gap:12px; align-items:center;">
-<!--          <div>当前查询 pid: {{ currentTargetPid }}</div>-->
+        <div style="display: inline-flex; gap: 12px; align-items: center">
+          <!--          <div>当前查询 pid: {{ currentTargetPid }}</div>-->
           <Button
             v-if="pidStack.length > 0"
             type="default"
-            style="margin-right:8px;"
+            style="margin-right: 8px"
             @click="goBack"
           >
             返回上级
           </Button>
         </div>
-
-
       </template>
       <!-- header slots: 在列头内渲染合计 + 列标题（两行） -->
       <template #header-name>
@@ -250,22 +292,24 @@ function goBack() {
         <MemberActions
           :row="row"
           @view-children="viewChildren"
-          @row-updated="(updated) => {
-        // 合并更新字段到 row
-        Object.assign(row, updated);
-        if (updated._raw) {
-          row._raw = Object.assign(row._raw || {}, updated._raw);
-        }
-        // 如果适配器提供 updateRow / refreshRow，调用它来局部刷新视图
-        if (typeof gridApi.updateRow === 'function') {
-          gridApi.updateRow(row);
-        } else if (typeof gridApi.refreshRow === 'function') {
-          gridApi.refreshRow(row);
-        } else {
-          // fallback: 轻触发重渲染
-          row._tmpRerender = (row._tmpRerender || 0) + 1;
-        }
-      }"
+          @row-updated="
+            (updated) => {
+              // 合并更新字段到 row
+              Object.assign(row, updated);
+              if (updated._raw) {
+                row._raw = Object.assign(row._raw || {}, updated._raw);
+              }
+              // 如果适配器提供 updateRow / refreshRow，调用它来局部刷新视图
+              if (typeof gridApi.updateRow === 'function') {
+                gridApi.updateRow(row);
+              } else if (typeof gridApi.refreshRow === 'function') {
+                gridApi.refreshRow(row);
+              } else {
+                // fallback: 轻触发重渲染
+                row._tmpRerender = (row._tmpRerender || 0) + 1;
+              }
+            }
+          "
         />
       </template>
     </Grid>
@@ -273,61 +317,69 @@ function goBack() {
     <Modal
       v-model:open="showRecommendModal"
       title="从属修改 - 输入推荐者ID"
-      :okText="'确认'"
-      :cancelText="'取消'"
-      :confirmLoading="modalLoading"
+      ok-text="确认"
+      cancel-text="取消"
+      :confirm-loading="modalLoading"
       @ok="confirmRecommend"
       @cancel="cancelRecommend"
     >
-      <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display: flex; flex-direction: column; gap: 8px">
         <div>请在下面输入新的推荐者ID（recommendId）：</div>
-        <Input v-model:value="recommendIdInput" placeholder="推荐者ID（数字）" />
-        <div style="color:var(--vben-text-3); font-size:12px;">说明：requestPid 会使用当前 AGENT_PID（或 ACCOUNT_ID）</div>
+        <Input
+          v-model:value="recommendIdInput"
+          placeholder="推荐者ID（数字）"
+        />
+        <div style="font-size: 12px; color: var(--vben-text-3)">
+          说明：requestPid 会使用当前 AGENT_PID（或 ACCOUNT_ID）
+        </div>
       </div>
     </Modal>
     <!-- 调整充值分成比例弹窗 -->
     <Modal
       v-model:open="showRateModal"
       title="调整充值分成比例"
-      :okText="'确认'"
-      :cancelText="'取消'"
-      :confirmLoading="rateModalLoading"
+      ok-text="确认"
+      cancel-text="取消"
+      :confirm-loading="rateModalLoading"
       @ok="confirmRate"
       @cancel="cancelRate"
     >
-      <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display: flex; flex-direction: column; gap: 8px">
         <div>请输入新的分成比例（0 - 100）：</div>
         <Input v-model:value="rateInput" placeholder="比例 例如：10 表示 10%" />
-        <div style="color:var(--vben-text-3); font-size:12px;">
+        <div style="font-size: 12px; color: var(--vben-text-3)">
           请求者 requestPid 将使用当前 AGENT_PID（或 ACCOUNT_ID）
         </div>
       </div>
     </Modal>
-
-
   </Page>
 </template>
 <style scoped>
 .header-top-cell {
+  padding: 4px 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--vben-text-2);
-  padding: 4px 8px;
   text-align: center;
 }
+
 .header-bottom-cell {
+  padding: 6px 8px;
   font-size: 13px;
   font-weight: 700;
-  padding: 6px 8px;
   text-align: center;
 }
+
 /* 如果需要在顶部合计行靠左显示（例如 PID），可单独调整： */
-.header-top-cell:first-child { justify-content: flex-start; padding-left: 12px; }
+.header-top-cell:first-child {
+  justify-content: flex-start;
+  padding-left: 12px;
+}
 
 .op-wrap {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
 }
 </style>

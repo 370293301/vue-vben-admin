@@ -1,11 +1,14 @@
-<script lang="ts" setup >
-import MemberActions from '#/components/MemberActions.vue'; // 或改为相对路径试试
+<script lang="ts" setup>
 // import {useVbenVxeGrid, VxeGridProps} from '#/adapter/vxe-table';
 import type { VxeGridProps } from '#/adapter/vxe-table';
-import {reactive, ref} from 'vue';
-import { agentReqGameRecord,agentReqGameDetailRecord  } from '#/api/game';
-import {message} from "ant-design-vue";
+
+import { reactive, ref } from 'vue';
+
+import { message } from 'ant-design-vue';
+
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { agentReqGameDetailRecord, agentReqGameRecord } from '#/api/game';
+import MemberActions from '#/components/MemberActions.vue'; // 或改为相对路径试试
 // 假设 Grid 已经定义好了，这里只展示如何在 action slot 使用 MemberActions
 // 弹窗状态
 const detailModalVisible = ref(false);
@@ -14,10 +17,10 @@ const detailRecords = ref<GameDetailRecord[]>([]);
 const detailPage = ref(1);
 const detailPageSize = ref(10);
 const detailTotalPages = ref(0);
-const detailPid = ref<number | null>(null)
+const detailPid = ref<null | number>(null);
 const searchState = reactive({
   dateRange: [] as any[],
-  field: 'uid' as 'uid' | 'nickname',
+  field: 'uid' as 'nickname' | 'uid',
   keyword: '',
   sortType: 0, // 0 默认、1 钻石 ↓、2 钻石 ↑、3 金豆 ↓、4 金豆 ↑ （复用你定义的含义）
   pageSize: 10,
@@ -33,7 +36,12 @@ async function fetchDetailPage() {
   if (!detailPid.value) return;
   // 明确取出 sortType 并打印（必做）
   const sortType = 0;
-  console.log('[debug] fetchDetailPage -> pid, page, sortType =', detailPid.value, detailPage.value, sortType);
+  console.log(
+    '[debug] fetchDetailPage -> pid, page, sortType =',
+    detailPid.value,
+    detailPage.value,
+    sortType,
+  );
 
   detailLoading.value = true;
   try {
@@ -43,7 +51,11 @@ async function fetchDetailPage() {
       pagNum: detailPage.value,
       showNum: detailPageSize.value,
       sortType, // <-- 一定要传这个
-      requestPid: Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
+      requestPid: Number(
+        localStorage.getItem('AGENT_PID') ??
+          localStorage.getItem('ACCOUNT_ID') ??
+          0,
+      ),
     });
 
     // 后端返回层次可能不一样，统一解析
@@ -52,24 +64,30 @@ async function fetchDetailPage() {
     const rawList = payload.listInfo ?? payload.list ?? [];
 
     // 把后端的结构标准化到 detailRecords 的结构： { time, roomKey, recordCode, players: [ {pid,name,headUrl,points} ] }
-    detailRecords.value = (Array.isArray(rawList) ? rawList : []).map((round: any) => {
-      const playersRaw = round.listInfo ?? round.players ?? [];
-      return {
-        time: round.time ?? round.date ?? '',
-        roomKey: round.roomKey ?? round.roomKeyId ?? '',
-        recordCode: round.recordCode ?? round.replayCode ?? '',
-        players: (Array.isArray(playersRaw) ? playersRaw : []).map((p: any) => ({
-          pid: Number(p.pid ?? p.id ?? 0),
-          name: p.name ?? p.nickname ?? '',
-          headUrl: p.headUrl ?? p.avatar ?? '',
-          points: Number(p.points ?? p.score ?? 0),
-        })),
-      };
-    });
+    detailRecords.value = (Array.isArray(rawList) ? rawList : []).map(
+      (round: any) => {
+        const playersRaw = round.listInfo ?? round.players ?? [];
+        return {
+          time: round.time ?? round.date ?? '',
+          roomKey: round.roomKey ?? round.roomKeyId ?? '',
+          recordCode: round.recordCode ?? round.replayCode ?? '',
+          players: (Array.isArray(playersRaw) ? playersRaw : []).map(
+            (p: any) => ({
+              pid: Number(p.pid ?? p.id ?? 0),
+              name: p.name ?? p.nickname ?? '',
+              headUrl: p.headUrl ?? p.avatar ?? '',
+              points: Number(p.points ?? p.score ?? 0),
+            }),
+          ),
+        };
+      },
+    );
 
-    detailTotalPages.value = Number(payload.totalPages ?? payload.totalPagesCount ?? payload.total ?? 1);
-  } catch (err) {
-    console.error('[debug] fetchDetailPage error', err);
+    detailTotalPages.value = Number(
+      payload.totalPages ?? payload.totalPagesCount ?? payload.total ?? 1,
+    );
+  } catch (error) {
+    console.error('[debug] fetchDetailPage error', error);
     message.error('获取战绩明细失败');
   } finally {
     detailLoading.value = false;
@@ -87,9 +105,11 @@ interface RowItem {
   bigWinnerCount?: number;
   points?: number;
 }
-const AGENT_PID = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+const AGENT_PID = Number(
+  localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0,
+);
 const columns: VxeGridProps<RowItem>['columns'] = [
-  { field: 'pid', title: 'PID'},
+  { field: 'pid', title: 'PID' },
   {
     field: 'headUrl',
     title: '头像',
@@ -97,12 +117,18 @@ const columns: VxeGridProps<RowItem>['columns'] = [
   },
   { field: 'level', title: '身份' },
   { field: 'name', title: '玩家名称' },
-  { field: 'setCount', title: '局数',
+  {
+    field: 'setCount',
+    title: '局数',
     sortable: false, // 使用自定义排序
-    slots: { header: 'header-setCount' } },
-  { field: 'bigWinnerCount', title: '大赢家',
+    slots: { header: 'header-setCount' },
+  },
+  {
+    field: 'bigWinnerCount',
+    title: '大赢家',
     sortable: false,
-    slots: { header: 'header-bigWinnerCount' } },
+    slots: { header: 'header-bigWinnerCount' },
+  },
   {
     field: 'points',
     title: '战绩得分',
@@ -116,7 +142,7 @@ const columns: VxeGridProps<RowItem>['columns'] = [
   {
     field: 'action',
     title: '操作',
-    width: 220,          // <- 必须给一个明确值（根据按钮数量调整）
+    width: 220, // <- 必须给一个明确值（根据按钮数量调整）
     showOverflow: false,
     fixed: 'right',
     slots: { default: 'action' },
@@ -129,7 +155,11 @@ const gridOptions: VxeGridProps<RowItem> = {
   height: 'auto',
   border: true,
   stripe: true,
-  pagerConfig: { currentPage: 1, pageSize: searchState.pageSize, pageSizes: [10, 20, 50, 100] },
+  pagerConfig: {
+    currentPage: 1,
+    pageSize: searchState.pageSize,
+    pageSizes: [10, 20, 50, 100],
+  },
   toolbarConfig: {
     custom: true,
     export: false,
@@ -143,21 +173,33 @@ const gridOptions: VxeGridProps<RowItem> = {
         // sorts 可能类似 [{ field:'points', order:'asc' }] 或你的 adapter 格式
         console.log('[debug] query called', { page, sorts });
         // 先把 adapter 传来的 sorts 映射成后端约定的 sortType（如果有）
-        const sortObj = (Array.isArray(sorts) && sorts[0]) ? sorts[0] : null;
+        const sortObj = Array.isArray(sorts) && sorts[0] ? sorts[0] : null;
         let mappedSortType = 0; // 默认
         if (sortObj) {
-          if (sortObj.field === 'setCount') {
-            mappedSortType = sortObj.order === 'desc' ? 1 : 2;
-          } else if (sortObj.field === 'points') {
-            mappedSortType = sortObj.order === 'desc' ? 3 : 4;
-          } else if (sortObj.field === 'bigWinnerCount') {
-            // 如果后端支持大赢家排序可以映射，这里留空或自定义
-            // mappedSortType = sortObj.order === 'desc' ? 5 : 6;
+          switch (sortObj.field) {
+            case 'bigWinnerCount': {
+              // 如果后端支持大赢家排序可以映射，这里留空或自定义
+              // mappedSortType = sortObj.order === 'desc' ? 5 : 6;
+
+              break;
+            }
+            case 'points': {
+              mappedSortType = sortObj.order === 'desc' ? 3 : 4;
+
+              break;
+            }
+            case 'setCount': {
+              mappedSortType = sortObj.order === 'desc' ? 1 : 2;
+
+              break;
+            }
+            // No default
           }
         }
 
         // 最终使用哪一个 sortType：优先使用 adapter 的 mappedSortType（非 0），否则使用 UI 状态 searchState.sortType
-        const finalSortType = mappedSortType !== 0 ? mappedSortType : (searchState.sortType ?? 0);
+        const finalSortType =
+          mappedSortType === 0 ? (searchState.sortType ?? 0) : mappedSortType;
 
         const [startDate, endDate] = searchState.dateRange ?? [];
         const params = {
@@ -168,8 +210,14 @@ const gridOptions: VxeGridProps<RowItem> = {
           sortType: finalSortType, // <- 这里使用 finalSortType（修复点）
           startDate,
           endDate,
-          pid: currentTargetPid?.value ?? Number(localStorage.getItem('AGENT_PID') ?? 0),
-          requestPid: Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
+          pid:
+            currentTargetPid?.value ??
+            Number(localStorage.getItem('AGENT_PID') ?? 0),
+          requestPid: Number(
+            localStorage.getItem('AGENT_PID') ??
+              localStorage.getItem('ACCOUNT_ID') ??
+              0,
+          ),
         };
 
         console.log('[debug] warRecord.query -> sending params:', params);
@@ -177,8 +225,8 @@ const gridOptions: VxeGridProps<RowItem> = {
         let res;
         try {
           res = await agentReqGameRecord(params);
-        } catch (err) {
-          console.error('[debug] agentReqGameRecord request failed', err);
+        } catch (error) {
+          console.error('[debug] agentReqGameRecord request failed', error);
           message.error('查询失败，请检查网络或控制台');
           return { items: [], total: 0 };
         }
@@ -202,15 +250,30 @@ const gridOptions: VxeGridProps<RowItem> = {
         // console.log('[debug] resolved rawList (length):', Array.isArray(rawList) ? rawList.length : 'not array', rawList);
 
         // 统计字段（如果接口返回）
-        statState.sumSetCount = Number(payload.sumSetCount ?? payload.sum_set_count ?? statState.sumSetCount ?? 0);
-        statState.sumBigWinnerCount = Number(payload.sumBigWinnerCount ?? payload.sum_big_winner_count ?? statState.sumBigWinnerCount ?? 0);
-        statState.sumPoints = Number(payload.sumPoints ?? payload.sum_points ?? statState.sumPoints ?? 0);
+        statState.sumSetCount = Number(
+          payload.sumSetCount ??
+            payload.sum_set_count ??
+            statState.sumSetCount ??
+            0,
+        );
+        statState.sumBigWinnerCount = Number(
+          payload.sumBigWinnerCount ??
+            payload.sum_big_winner_count ??
+            statState.sumBigWinnerCount ??
+            0,
+        );
+        statState.sumPoints = Number(
+          payload.sumPoints ?? payload.sum_points ?? statState.sumPoints ?? 0,
+        );
 
         // total 处理（优先后端给的 total / totalPages）
         let total = 0;
         if (typeof payload.total === 'number') {
           total = payload.total;
-        } else if (typeof payload.totalPages === 'number' && payload.totalPages > 0) {
+        } else if (
+          typeof payload.totalPages === 'number' &&
+          payload.totalPages > 0
+        ) {
           total = payload.totalPages * page.pageSize;
         } else if (Array.isArray(rawList)) {
           total = rawList.length;
@@ -219,8 +282,16 @@ const gridOptions: VxeGridProps<RowItem> = {
         // 映射字段：注意 field 名和 columns 对齐（例子用 pid/headUrl/name/setCount/bigWinnerCount/points/remark）
         const list = (Array.isArray(rawList) ? rawList : []).map((it: any) => {
           const pid = Number(it.pid ?? it.id ?? 0);
-          const isBannedFromServer = typeof it.isBanned !== 'undefined' ? !!it.isBanned : (typeof it.banned !== 'undefined' ? !!it.banned : undefined);
-          const isBanned = typeof isBannedFromServer === 'boolean' ? isBannedFromServer : false;
+          const isBannedFromServer =
+            it.isBanned === undefined
+              ? it.banned === undefined
+                ? undefined
+                : !!it.banned)
+              : !!it.isBanned;
+          const isBanned =
+            typeof isBannedFromServer === 'boolean'
+              ? isBannedFromServer
+              : false;
 
           return {
             pid,
@@ -228,11 +299,13 @@ const gridOptions: VxeGridProps<RowItem> = {
             name: it.name ?? it.nickname ?? '',
             level: it.level ?? it.nobleLevel ?? 0,
             setCount: Number(it.setCount ?? it.set_count ?? it.rounds ?? 0),
-            bigWinnerCount: Number(it.bigWinnerCount ?? it.big_winner_count ?? it.bigWinner ?? 0),
+            bigWinnerCount: Number(
+              it.bigWinnerCount ?? it.big_winner_count ?? it.bigWinner ?? 0,
+            ),
             points: Number(it.points ?? it.score ?? 0),
             remark: it.remark ?? it.setRemark ?? '',
             // 把后端原始数据和标准化字段放进 _raw，保证 MemberActions 能读取 pid/isBanned 等
-            _raw: { ...(it ?? {}), pid, isBanned },
+            _raw: { ...it, pid, isBanned },
             isBanned,
           };
         });
