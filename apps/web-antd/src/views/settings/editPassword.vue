@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 
 import { Button, Input, message } from 'ant-design-vue';
+
 import { agentChangePassWord } from '#/api/account';
 
 const newPassword = ref('');
@@ -25,7 +26,11 @@ async function onSubmit() {
     const msg = resp?.message ?? '';
 
     // 根据后端 result 字段进行判断（兼容字符串或 boolean）
-    const ok = result === true || String(result).toLowerCase() === 'true' || String(result).includes('成功') || String(result).toLowerCase() === 'success';
+    const ok =
+      result === true ||
+      String(result).toLowerCase() === 'true' ||
+      String(result).includes('成功') ||
+      String(result).toLowerCase() === 'success';
 
     if (ok) {
       message.success(msg || '密码修改成功');
@@ -34,9 +39,9 @@ async function onSubmit() {
     } else {
       message.error(msg || '密码修改失败');
     }
-  } catch (err: any) {
-    console.error('[agentChangePassWord] error', err);
-    message.error(err?.message || '请求出错，请稍后重试');
+  } catch (error: any) {
+    console.error('[agentChangePassWord] error', error);
+    message.error(error?.message || '请求出错，请稍后重试');
   }
 }
 </script>

@@ -9,21 +9,21 @@ import type { Ref } from 'vue';
  * - stats: { sumDiamond: number, sumGold: number } - 包含合计数据的响应式对象
  */
 export function createTotalsThemeManager(opts: {
-  totalsTableRef: Ref<HTMLElement | null>,
-  vxeGridRef?: Ref<any> | null,
-  columns: any[],
-  stats: { sumDiamond?: number | null, sumGold?: number | null }
+  columns: any[];
+  stats: { sumDiamond?: null | number; sumGold?: null | number };
+  totalsTableRef: Ref<HTMLElement | null>;
+  vxeGridRef?: null | Ref<any>;
 }) {
   const { totalsTableRef, vxeGridRef = null, columns, stats } = opts;
 
   // timers / observers
-  let resizeTimer: number | null = null;
-  let themeDebounceTimer: number | null = null;
+  let resizeTimer: null | number = null;
+  let themeDebounceTimer: null | number = null;
   let themeObserver: MutationObserver | null = null;
   let headerObserver: MutationObserver | null = null;
 
   // ---------- 辅助函数 ----------
-  function getComputedStyleSafe(el: Element, pseudo?: '::before' | '::after') {
+  function getComputedStyleSafe(el: Element, pseudo?: '::after' | '::before') {
     try {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
@@ -38,8 +38,10 @@ export function createTotalsThemeManager(opts: {
     const bg = cs.backgroundColor || '';
     const bgImg = cs.backgroundImage || '';
     const box = cs.boxShadow || '';
-    const border = (cs as any).borderBottom || cs.borderBottomStyle || cs.borderStyle || '';
-    const bgVisible = !!bg && !bg.includes('rgba(0, 0, 0, 0)') && !bg.includes('transparent');
+    const border =
+      (cs as any).borderBottom || cs.borderBottomStyle || cs.borderStyle || '';
+    const bgVisible =
+      !!bg && !bg.includes('rgba(0, 0, 0, 0)') && !bg.includes('transparent');
     const imgVisible = !!bgImg && bgImg !== 'none' && bgImg !== 'initial';
     const boxVisible = !!box && box !== 'none';
     const borderVisible = !!border && border !== 'none';
@@ -50,9 +52,11 @@ export function createTotalsThemeManager(opts: {
     let cur: Element | null = startEl;
     while (cur) {
       const beforeCs = getComputedStyleSafe(cur, '::before');
-      if (isVisibleBg(beforeCs)) return { node: cur, cs: beforeCs, via: 'pseudo-before' };
+      if (isVisibleBg(beforeCs))
+        return { node: cur, cs: beforeCs, via: 'pseudo-before' };
       const afterCs = getComputedStyleSafe(cur, '::after');
-      if (isVisibleBg(afterCs)) return { node: cur, cs: afterCs, via: 'pseudo-after' };
+      if (isVisibleBg(afterCs))
+        return { node: cur, cs: afterCs, via: 'pseudo-after' };
 
       const selfCs = getComputedStyleSafe(cur);
       if (isVisibleBg(selfCs)) return { node: cur, cs: selfCs, via: 'self' };
@@ -65,24 +69,31 @@ export function createTotalsThemeManager(opts: {
   // 查找 grid table 的 DOM（优先使用 vxeGridRef）
   function findGridTable(): HTMLTableElement | null {
     // 如果传入了 vxeGridRef（你的 Grid ref），优先在其 $el 内寻找
-    const rootEl = (vxeGridRef && (vxeGridRef as any).value)
-      ? ((vxeGridRef as any).value.$el ?? (vxeGridRef as any).value)
-      : null;
+    const rootEl =
+      vxeGridRef && (vxeGridRef as any).value
+        ? ((vxeGridRef as any).value.$el ?? (vxeGridRef as any).value)
+        : null;
 
     if (rootEl && (rootEl as Element).querySelector) {
-      const t = (rootEl as Element).querySelector('table') ?? (rootEl as Element).querySelector('table.vxe-table');
+      const t =
+        (rootEl as Element).querySelector('table') ??
+        (rootEl as Element).querySelector('table.vxe-table');
       if (t) return t as HTMLTableElement;
       // 更深层兜底
       const possible = (rootEl as Element).querySelectorAll('div,section');
-      for (const el of Array.from(possible)) {
+      for (const el of possible) {
         const tt = (el as Element).querySelector('table');
         if (tt) return tt as HTMLTableElement;
       }
     }
 
     // 最后兜底：页面第一个非 totals-only 的 table
-    const allTables = Array.from(document.querySelectorAll('table')).filter(t => !t.classList.contains('totals-only'));
-    const firstWithThead = allTables.find(t => t.querySelector('thead')) as HTMLTableElement | undefined;
+    const allTables = [...document.querySelectorAll('table')].filter(
+      (t) => !t.classList.contains('totals-only'),
+    );
+    const firstWithThead = allTables.find((t) => t.querySelector('thead')) as
+      | HTMLTableElement
+      | undefined;
     return (firstWithThead ?? allTables[0]) as HTMLTableElement | null;
   }
 
@@ -99,7 +110,7 @@ export function createTotalsThemeManager(opts: {
     const headerRows = thead.querySelectorAll('tr');
     const baseRow = headerRows[headerRows.length - 1] ?? headerRows[0];
     if (!baseRow) return;
-    const srcCells = Array.from(baseRow.children) as HTMLElement[];
+    const srcCells = [...baseRow.children] as HTMLElement[];
 
     // 找样本单元格（第一个可见）
     let sampleCell: HTMLElement | null = null;
@@ -109,18 +120,28 @@ export function createTotalsThemeManager(opts: {
         break;
       }
     }
-    if (!sampleCell) sampleCell = (srcCells[0] as HTMLElement) ?? (baseRow as unknown as HTMLElement);
+    if (!sampleCell)
+      sampleCell =
+        (srcCells[0] as HTMLElement) ?? (baseRow as unknown as HTMLElement);
 
     // 复制背景/样式（优先伪元素/祖先）
     const bgInfo = findBackgroundSource(sampleCell ?? baseRow);
     if (bgInfo && bgInfo.cs) {
       const cs = bgInfo.cs as CSSStyleDeclaration;
-      if ((cs as any).backgroundImage && (cs as any).backgroundImage !== 'none') {
+      if (
+        (cs as any).backgroundImage &&
+        (cs as any).backgroundImage !== 'none'
+      ) {
         totalsTable.style.backgroundImage = (cs as any).backgroundImage;
         totalsTable.style.backgroundRepeat = (cs as any).backgroundRepeat || '';
-        totalsTable.style.backgroundPosition = (cs as any).backgroundPosition || '';
+        totalsTable.style.backgroundPosition =
+          (cs as any).backgroundPosition || '';
         totalsTable.style.backgroundSize = (cs as any).backgroundSize || '';
-      } else if ((cs as any).backgroundColor && (cs as any).backgroundColor !== 'transparent' && !(cs as any).backgroundColor.includes('rgba(0, 0, 0, 0)')) {
+      } else if (
+        (cs as any).backgroundColor &&
+        (cs as any).backgroundColor !== 'transparent' &&
+        !(cs as any).backgroundColor.includes('rgba(0, 0, 0, 0)')
+      ) {
         totalsTable.style.background = (cs as any).backgroundColor;
       } else {
         totalsTable.style.background = '';
@@ -128,37 +149,51 @@ export function createTotalsThemeManager(opts: {
       totalsTable.style.boxShadow = (cs as any).boxShadow || '';
       totalsTable.style.borderBottom = (cs as any).borderBottom || '';
       // 文字颜色：优先用样本单元格 color
-      const headerColor = sampleCell ? getComputedStyle(sampleCell).color : ((bgInfo.cs && (bgInfo.cs as any).color) || '');
-      totalsTable.querySelectorAll('th').forEach(th => {
+      const headerColor = sampleCell
+        ? getComputedStyle(sampleCell).color
+        : (bgInfo.cs && (bgInfo.cs as any).color) || '';
+      totalsTable.querySelectorAll('th').forEach((th) => {
         (th as HTMLElement).style.color = headerColor || 'var(--vben-text-1)';
         (th as HTMLElement).style.opacity = '1';
       });
     } else {
       // fallback
-      totalsTable.style.background = 'var(--vben-header-bg, rgba(18,18,18,0.98))';
+      totalsTable.style.background =
+        'var(--vben-header-bg, rgba(18,18,18,0.98))';
       totalsTable.style.boxShadow = '';
       totalsTable.style.borderBottom = '';
-      totalsTable.querySelectorAll('th').forEach(th => {
+      totalsTable.querySelectorAll('th').forEach((th) => {
         (th as HTMLElement).style.color = 'var(--vben-text-1, #e6eef8)';
         (th as HTMLElement).style.opacity = '1';
       });
     }
 
     // 写回合计文本（保证重新渲染或其它代码未清空时仍有内容）
-    const ths = Array.from(totalsTable.querySelectorAll('th')) as HTMLElement[];
-    for (let i = 0; i < ths.length; i++) {
-      const th = ths[i];
+    const ths = [...totalsTable.querySelectorAll('th')] as HTMLElement[];
+    for (const [i, th] of ths.entries()) {
       const col = Array.isArray(columns) ? (columns as any)[i] : undefined;
       const field = col ? (col.field as string) : undefined;
 
-      if (field === 'id' || field === 'uid') {
-        th.textContent = '合计';
-      } else if (field === 'crystal') {
-        th.textContent = String(stats.sumDiamond ?? 0);
-      } else if (field === 'gold') {
-        th.textContent = String(stats.sumGold ?? 0);
-      } else {
-        th.innerHTML = '&nbsp;';
+      switch (field) {
+        case 'crystal': {
+          th.textContent = String(stats.sumDiamond ?? 0);
+
+          break;
+        }
+        case 'gold': {
+          th.textContent = String(stats.sumGold ?? 0);
+
+          break;
+        }
+        case 'id':
+        case 'uid': {
+          th.textContent = '合计';
+
+          break;
+        }
+        default: {
+          th.innerHTML = '&nbsp;';
+        }
       }
     }
 
@@ -166,7 +201,10 @@ export function createTotalsThemeManager(opts: {
     const cols = totalsTable.querySelectorAll('col');
     const n = Math.min(srcCells.length, cols.length);
     for (let i = 0; i < n; i++) {
-      const w = Math.max(1, Math.round(srcCells[i].getBoundingClientRect().width));
+      const w = Math.max(
+        1,
+        Math.round(srcCells[i].getBoundingClientRect().width),
+      );
       (cols[i] as HTMLTableColElement).style.width = `${w}px`;
     }
 
@@ -200,9 +238,15 @@ export function createTotalsThemeManager(opts: {
           themeDebounceTimer = null;
         }, 80) as unknown as number;
       });
-      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-      themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-    } catch (e) {
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme'],
+      });
+      themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme'],
+      });
+    } catch {
       // ignore
     }
 
@@ -217,7 +261,11 @@ export function createTotalsThemeManager(opts: {
           themeDebounceTimer = null;
         }, 80) as unknown as number;
       });
-      headerObserver.observe(thead, { attributes: true, childList: true, subtree: true });
+      headerObserver.observe(thead, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
     }
   }
 

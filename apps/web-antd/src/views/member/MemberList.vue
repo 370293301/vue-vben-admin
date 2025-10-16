@@ -1,7 +1,14 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { reactive, ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -57,7 +64,7 @@ const rateModalLoading = ref(false);
 const columns: VxeGridProps<any>['columns'] = [
   { field: 'id', title: '玩家ID' },
   { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
-  { field: 'name', title: '玩家名称'},
+  { field: 'name', title: '玩家名称' },
   { field: 'nobleLevel', title: '贵族等级' },
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
@@ -133,9 +140,12 @@ const gridOptions: VxeGridProps<any> = {
           //       ? undefined
           //       : !!it.banned)
           //     : !!it.isBanned;
-          const isBannedFromServer = ('banned' in it)
-            ? !!it.banned
-            : ('isBanned' in it ? !!it.isBanned : undefined);
+          const isBannedFromServer =
+            'banned' in it
+              ? !!it.banned
+              : 'isBanned' in it
+                ? !!it.isBanned
+                : undefined;
           const isBanned =
             typeof isBannedFromServer === 'boolean'
               ? isBannedFromServer
@@ -180,21 +190,12 @@ const totalsTableRef = ref<HTMLElement | null>(null);
 // }
 const vxeGridRef = ref<any>(null);
 
-
 const totalsManager = createTotalsThemeManager({
   totalsTableRef,
   vxeGridRef,
   columns,
   stats,
 });
-
-
-
-
-
-
-
-
 
 onMounted(() => {
   // 等 DOM 渲染完后启动（nextTick 确保 template 中的 table 已存在）
@@ -208,9 +209,12 @@ onBeforeUnmount(() => {
 });
 
 // 当合计或列定义变化时再次同步（保证标题文本更新后宽度匹配）
-watch([() => stats.sumDiamond, () => stats.sumGold, () => columns.length], () => {
-  nextTick(() => totalsManager.sync());
-});
+watch(
+  [() => stats.sumDiamond, () => stats.sumGold, () => columns.length],
+  () => {
+    nextTick(() => totalsManager.sync());
+  },
+);
 
 // 当 sort 变化时触发重新加载（保持在当前页）
 function onSortChange(v: number) {
@@ -259,24 +263,41 @@ function goBack() {
       ref="totalsTableRef"
       class="totals-only"
       aria-hidden="true"
-      style="border-collapse: collapse; width:100%; table-layout: fixed; margin-bottom:8px; display:none;"
+      style="
+        display: none;
+        width: 100%;
+        margin-bottom: 8px;
+        table-layout: fixed;
+        border-collapse: collapse;
+      "
     >
       <colgroup>
         <col v-for="col in columns" :key="col.field" />
       </colgroup>
       <thead>
-      <tr>
-        <th
-          v-for="col in columns"
-          :key="col.field"
-          style="padding:6px 8px; font-weight:600; text-align:center; white-space:nowrap; min-height:36px; box-sizing:border-box;"
-        >
-          <template v-if="col.field === 'id'">合计</template>
-          <template v-else-if="col.field === 'crystal'">{{ stats.sumDiamond }}</template>
-          <template v-else-if="col.field === 'gold'">{{ stats.sumGold }}</template>
-          <template v-else>&nbsp;</template>
-        </th>
-      </tr>
+        <tr>
+          <th
+            v-for="col in columns"
+            :key="col.field"
+            style="
+              box-sizing: border-box;
+              min-height: 36px;
+              padding: 6px 8px;
+              font-weight: 600;
+              text-align: center;
+              white-space: nowrap;
+            "
+          >
+            <template v-if="col.field === 'id'">合计</template>
+            <template v-else-if="col.field === 'crystal'">
+              {{ stats.sumDiamond }}
+            </template>
+            <template v-else-if="col.field === 'gold'">
+              {{ stats.sumGold }}
+            </template>
+            <template v-else>&nbsp;</template>
+          </th>
+        </tr>
       </thead>
     </table>
 
@@ -343,20 +364,20 @@ function goBack() {
         </div>
       </template>
       <!-- header slots: 在列头内渲染合计 + 列标题（两行） -->
-<!--      <template #header-name>-->
-<!--        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>-->
-<!--        <div class="header-bottom-cell">玩家名称</div>-->
-<!--      </template>-->
+      <!--      <template #header-name>-->
+      <!--        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>-->
+      <!--        <div class="header-bottom-cell">玩家名称</div>-->
+      <!--      </template>-->
 
-<!--      <template #header-crystal>-->
-<!--        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>-->
-<!--        <div class="header-bottom-cell">剩余钻石</div>-->
-<!--      </template>-->
+      <!--      <template #header-crystal>-->
+      <!--        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>-->
+      <!--        <div class="header-bottom-cell">剩余钻石</div>-->
+      <!--      </template>-->
 
-<!--      <template #header-gold>-->
-<!--        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>-->
-<!--        <div class="header-bottom-cell">剩余金豆</div>-->
-<!--      </template>-->
+      <!--      <template #header-gold>-->
+      <!--        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>-->
+      <!--        <div class="header-bottom-cell">剩余金豆</div>-->
+      <!--      </template>-->
       <template #avatar="{ row }">
         <Image :src="row.headImageUrl" :width="40" :height="40" />
       </template>
@@ -456,18 +477,25 @@ function goBack() {
   gap: 8px;
   justify-content: flex-end;
 }
+
 .totals-only th {
-  /*background: #fafafa;*/
-  /*border-bottom: 1px solid #eee;*/
+  /* background: #fafafa; */
+
+  /* border-bottom: 1px solid #eee; */
   box-sizing: border-box;
   padding: 6px 8px;
   font-size: 13px;
 }
+
 .totals-only {
-  /*background: var(--vben-header-bg, transparent);*/
+  /* background: var(--vben-header-bg, transparent); */
 }
-/*.totals-only th {*/
-/*  color: var(--vben-text-1, #e6eef8) !important;*/
-/*  font-weight: 600;*/
-/*}*/
+
+/* .totals-only th { */
+
+/*  color: var(--vben-text-1, #e6eef8) !important; */
+
+/*  font-weight: 600; */
+
+/* } */
 </style>

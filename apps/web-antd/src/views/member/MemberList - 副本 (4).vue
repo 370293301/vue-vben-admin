@@ -1,7 +1,14 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { reactive, ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -56,7 +63,7 @@ const rateModalLoading = ref(false);
 const columns: VxeGridProps<any>['columns'] = [
   { field: 'id', title: '玩家ID' },
   { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
-  { field: 'name', title: '玩家名称'},
+  { field: 'name', title: '玩家名称' },
   { field: 'nobleLevel', title: '贵族等级' },
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
@@ -132,9 +139,12 @@ const gridOptions: VxeGridProps<any> = {
           //       ? undefined
           //       : !!it.banned)
           //     : !!it.isBanned;
-          const isBannedFromServer = ('banned' in it)
-            ? !!it.banned
-            : ('isBanned' in it ? !!it.isBanned : undefined);
+          const isBannedFromServer =
+            'banned' in it
+              ? !!it.banned
+              : ('isBanned' in it
+                ? !!it.isBanned
+                : undefined);
           const isBanned =
             typeof isBannedFromServer === 'boolean'
               ? isBannedFromServer
@@ -169,7 +179,10 @@ function getFirstNonTransparentAncestor(el: Element | null) {
     const bgColor = cs.backgroundColor;
     const bgImage = cs.backgroundImage;
     // 判定为“有背景”的条件 —— 背景色不是 fully transparent 或有背景图片
-    const isBgColorVisible = !!bgColor && !bgColor.includes('rgba(0, 0, 0, 0)') && !bgColor.includes('transparent');
+    const isBgColorVisible =
+      !!bgColor &&
+      !bgColor.includes('rgba(0, 0, 0, 0)') &&
+      !bgColor.includes('transparent');
     const hasBgImage = !!bgImage && bgImage !== 'none' && bgImage !== 'initial';
     if (isBgColorVisible || hasBgImage) return cur;
     cur = cur.parentElement;
@@ -183,14 +196,15 @@ function isVisibleBg(cs: CSSStyleDeclaration | null) {
   const bgImg = cs.backgroundImage || '';
   const box = cs.boxShadow || '';
   const border = cs.borderBottomStyle || cs.borderStyle || '';
-  const bgVisible = !!bg && !bg.includes('rgba(0, 0, 0, 0)') && !bg.includes('transparent');
+  const bgVisible =
+    !!bg && !bg.includes('rgba(0, 0, 0, 0)') && !bg.includes('transparent');
   const imgVisible = !!bgImg && bgImg !== 'none' && bgImg !== 'initial';
   const boxVisible = !!box && box !== 'none';
   const borderVisible = !!border && border !== 'none';
   return bgVisible || imgVisible || boxVisible || borderVisible;
 }
 
-function getComputedStyleSafe(el: Element, pseudo?: '::before' | '::after') {
+function getComputedStyleSafe(el: Element, pseudo?: '::after' | '::before') {
   try {
     return pseudo ? getComputedStyle(el, pseudo) : getComputedStyle(el);
   } catch {
@@ -203,9 +217,11 @@ function findBackgroundSource(startEl: Element | null) {
   while (cur) {
     // 先检测伪元素（before/after）
     const beforeCs = getComputedStyleSafe(cur, '::before');
-    if (isVisibleBg(beforeCs)) return { node: cur, cs: beforeCs, via: 'pseudo-before' };
+    if (isVisibleBg(beforeCs))
+      return { node: cur, cs: beforeCs, via: 'pseudo-before' };
     const afterCs = getComputedStyleSafe(cur, '::after');
-    if (isVisibleBg(afterCs)) return { node: cur, cs: afterCs, via: 'pseudo-after' };
+    if (isVisibleBg(afterCs))
+      return { node: cur, cs: afterCs, via: 'pseudo-after' };
 
     // 再检测自己
     const selfCs = getComputedStyleSafe(cur);
@@ -221,14 +237,21 @@ function syncTotalsWidths1() {
   if (!totalsTable) return;
 
   // 找到原表格（优先从 vxeGridRef）
-  const rootEl = (window as any).__vxeGridRef?.value?.$el ?? (window as any).__vxeGridRef?.value ?? (typeof vxeGridRef !== 'undefined' ? vxeGridRef.value?.$el ?? vxeGridRef.value : null);
+  const rootEl =
+    (window as any).__vxeGridRef?.value?.$el ??
+    (window as any).__vxeGridRef?.value ??
+    (typeof vxeGridRef === 'undefined'
+      ? null
+      : (vxeGridRef.value?.$el ?? vxeGridRef.value));
   let gridTable: HTMLTableElement | null = null;
 
   if (rootEl) {
-    gridTable = (rootEl as Element).querySelector('table') ?? (rootEl as Element).querySelector('table.vxe-table');
+    gridTable =
+      (rootEl as Element).querySelector('table') ??
+      (rootEl as Element).querySelector('table.vxe-table');
     if (!gridTable) {
       const possible = (rootEl as Element).querySelectorAll('div,section');
-      for (const el of Array.from(possible)) {
+      for (const el of possible) {
         const t = (el as Element).querySelector('table');
         if (t) {
           gridTable = t as HTMLTableElement;
@@ -240,8 +263,13 @@ function syncTotalsWidths1() {
 
   // 兜底：页面第一个非 totals-only 的 table
   if (!gridTable) {
-    const allTables = Array.from(document.querySelectorAll('table')).filter(t => !t.classList.contains('totals-only'));
-    gridTable = (allTables.find(t => t.querySelector('thead')) as HTMLTableElement) || (allTables[0] as HTMLTableElement) || null;
+    const allTables = [...document.querySelectorAll('table')].filter(
+      (t) => !t.classList.contains('totals-only'),
+    );
+    gridTable =
+      (allTables.find((t) => t.querySelector('thead')) as HTMLTableElement) ||
+      (allTables[0] as HTMLTableElement) ||
+      null;
   }
   if (!gridTable) return;
 
@@ -251,7 +279,7 @@ function syncTotalsWidths1() {
   const baseRow = headerRows[headerRows.length - 1] ?? headerRows[0];
   if (!baseRow) return;
 
-  const srcCells = Array.from(baseRow.children) as HTMLElement[];
+  const srcCells = [...baseRow.children] as HTMLElement[];
 
   // 查找第一个可见单元格并向上查找具有背景的 ancestor（更稳）
   let sampleCell: HTMLElement | null = null;
@@ -281,14 +309,14 @@ function syncTotalsWidths1() {
     totalsTable.style.boxShadow = cs.boxShadow || '';
     totalsTable.style.borderBottom = cs.borderBottom || '';
     const color = sampleCell ? getComputedStyle(sampleCell).color : cs.color;
-    totalsTable.querySelectorAll('th').forEach(th => {
+    totalsTable.querySelectorAll('th').forEach((th) => {
       (th as HTMLElement).style.color = color || 'var(--vben-text-1)';
       (th as HTMLElement).style.opacity = '1';
     });
   } else {
     // fallback
     totalsTable.style.background = 'var(--vben-header-bg, rgba(18,18,18,0.98))';
-    totalsTable.querySelectorAll('th').forEach(th => {
+    totalsTable.querySelectorAll('th').forEach((th) => {
       (th as HTMLElement).style.color = 'var(--vben-text-1, #e6eef8)';
     });
   }
@@ -297,7 +325,10 @@ function syncTotalsWidths1() {
   const cols = totalsTable.querySelectorAll('col');
   const n = Math.min(srcCells.length, cols.length);
   for (let i = 0; i < n; i++) {
-    const w = Math.max(1, Math.round(srcCells[i].getBoundingClientRect().width));
+    const w = Math.max(
+      1,
+      Math.round(srcCells[i].getBoundingClientRect().width),
+    );
     (cols[i] as HTMLTableColElement).style.width = `${w}px`;
   }
 
@@ -316,17 +347,22 @@ function syncTotalsWidths() {
   const rootEl =
     (window as any).__vxeGridRef?.value?.$el ??
     (window as any).__vxeGridRef?.value ??
-    (typeof vxeGridRef !== 'undefined' ? (vxeGridRef.value?.$el ?? vxeGridRef.value) : null);
+    (typeof vxeGridRef === 'undefined'
+      ? null
+      : (vxeGridRef.value?.$el ?? vxeGridRef.value));
 
   let gridTable: HTMLTableElement | null = null;
 
   if (rootEl && (rootEl as Element).querySelector) {
-    gridTable = ((rootEl as Element).querySelector('table') ?? (rootEl as Element).querySelector('table.vxe-table')) as HTMLTableElement | null;
+    gridTable = ((rootEl as Element).querySelector('table') ??
+      (rootEl as Element).querySelector(
+        'table.vxe-table',
+      )) as HTMLTableElement | null;
 
     if (!gridTable) {
       // 兜底在 rootEl 下找 table
       const possible = (rootEl as Element).querySelectorAll('div,section');
-      for (const el of Array.from(possible)) {
+      for (const el of possible) {
         const t = (el as Element).querySelector('table');
         if (t) {
           gridTable = t as HTMLTableElement;
@@ -338,8 +374,13 @@ function syncTotalsWidths() {
 
   // 兜底：页面第一个非 totals-only 的 table
   if (!gridTable) {
-    const allTables = Array.from(document.querySelectorAll('table')).filter(t => !t.classList.contains('totals-only'));
-    gridTable = (allTables.find(t => t.querySelector('thead')) as HTMLTableElement) || (allTables[0] as HTMLTableElement) || null;
+    const allTables = [...document.querySelectorAll('table')].filter(
+      (t) => !t.classList.contains('totals-only'),
+    );
+    gridTable =
+      (allTables.find((t) => t.querySelector('thead')) as HTMLTableElement) ||
+      (allTables[0] as HTMLTableElement) ||
+      null;
   }
   if (!gridTable) return;
 
@@ -349,7 +390,7 @@ function syncTotalsWidths() {
   const baseRow = headerRows[headerRows.length - 1] ?? headerRows[0];
   if (!baseRow) return;
 
-  const srcCells = Array.from(baseRow.children) as HTMLElement[];
+  const srcCells = [...baseRow.children] as HTMLElement[];
 
   // 查找第一个可见单元格作为样本
   let sampleCell: HTMLElement | null = null;
@@ -359,7 +400,9 @@ function syncTotalsWidths() {
       break;
     }
   }
-  if (!sampleCell) sampleCell = (srcCells[0] as HTMLElement) ?? (baseRow as unknown as HTMLElement);
+  if (!sampleCell)
+    sampleCell =
+      (srcCells[0] as HTMLElement) ?? (baseRow as unknown as HTMLElement);
 
   // 复制背景/颜色（向上查找伪元素或祖先）
   const bgInfo = findBackgroundSource(sampleCell ?? baseRow);
@@ -369,9 +412,14 @@ function syncTotalsWidths() {
     if ((cs as any).backgroundImage && (cs as any).backgroundImage !== 'none') {
       totalsTable.style.backgroundImage = (cs as any).backgroundImage;
       totalsTable.style.backgroundRepeat = (cs as any).backgroundRepeat || '';
-      totalsTable.style.backgroundPosition = (cs as any).backgroundPosition || '';
+      totalsTable.style.backgroundPosition =
+        (cs as any).backgroundPosition || '';
       totalsTable.style.backgroundSize = (cs as any).backgroundSize || '';
-    } else if ((cs as any).backgroundColor && (cs as any).backgroundColor !== 'transparent' && !(cs as any).backgroundColor.includes('rgba(0, 0, 0, 0)')) {
+    } else if (
+      (cs as any).backgroundColor &&
+      (cs as any).backgroundColor !== 'transparent' &&
+      !(cs as any).backgroundColor.includes('rgba(0, 0, 0, 0)')
+    ) {
       totalsTable.style.background = (cs as any).backgroundColor;
     } else {
       totalsTable.style.background = '';
@@ -379,8 +427,10 @@ function syncTotalsWidths() {
     totalsTable.style.boxShadow = (cs as any).boxShadow || '';
     totalsTable.style.borderBottom = (cs as any).borderBottom || '';
     // 文字颜色：优先使用样本单元格的 computed color
-    const headerColor = sampleCell ? getComputedStyle(sampleCell).color : ((bgInfo.cs && (bgInfo.cs as any).color) || '');
-    totalsTable.querySelectorAll('th').forEach(th => {
+    const headerColor = sampleCell
+      ? getComputedStyle(sampleCell).color
+      : (bgInfo.cs && (bgInfo.cs as any).color) || '';
+    totalsTable.querySelectorAll('th').forEach((th) => {
       (th as HTMLElement).style.color = headerColor || 'var(--vben-text-1)';
       (th as HTMLElement).style.opacity = '1';
     });
@@ -389,7 +439,7 @@ function syncTotalsWidths() {
     totalsTable.style.background = 'var(--vben-header-bg, rgba(18,18,18,0.98))';
     totalsTable.style.boxShadow = '';
     totalsTable.style.borderBottom = '';
-    totalsTable.querySelectorAll('th').forEach(th => {
+    totalsTable.querySelectorAll('th').forEach((th) => {
       (th as HTMLElement).style.color = 'var(--vben-text-1, #e6eef8)';
       (th as HTMLElement).style.opacity = '1';
     });
@@ -397,21 +447,33 @@ function syncTotalsWidths() {
 
   // ----- 关键：按 columns 填充合计单元格的文本（防止被清空） -----
   // 注意：确保 SFC 中存在 `columns` 和 `stats`（sumDiamond / sumGold）
-  const ths = Array.from(totalsTable.querySelectorAll('th')) as HTMLElement[];
-  for (let i = 0; i < ths.length; i++) {
-    const th = ths[i];
-    const col = (Array.isArray(columns) ? (columns as any)[i] : undefined) || null;
+  const ths = [...totalsTable.querySelectorAll('th')] as HTMLElement[];
+  for (const [i, th] of ths.entries()) {
+    const col =
+      (Array.isArray(columns) ? (columns as any)[i] : undefined) || null;
     const field = col ? (col.field as string) : undefined;
 
-    if (field === 'id' || field === 'uid') {
-      th.textContent = '合计';
-    } else if (field === 'crystal') {
-      th.textContent = String(stats.sumDiamond ?? 0);
-    } else if (field === 'gold') {
-      th.textContent = String(stats.sumGold ?? 0);
-    } else {
-      // 保持占位，避免列错位；用 &nbsp; 保留列宽
-      th.innerHTML = '&nbsp;';
+    switch (field) {
+      case 'crystal': {
+        th.textContent = String(stats.sumDiamond ?? 0);
+
+        break;
+      }
+      case 'gold': {
+        th.textContent = String(stats.sumGold ?? 0);
+
+        break;
+      }
+      case 'id':
+      case 'uid': {
+        th.textContent = '合计';
+
+        break;
+      }
+      default: {
+        // 保持占位，避免列错位；用 &nbsp; 保留列宽
+        th.innerHTML = '&nbsp;';
+      }
     }
   }
 
@@ -419,7 +481,10 @@ function syncTotalsWidths() {
   const cols = totalsTable.querySelectorAll('col');
   const n = Math.min(srcCells.length, cols.length);
   for (let i = 0; i < n; i++) {
-    const w = Math.max(1, Math.round(srcCells[i].getBoundingClientRect().width));
+    const w = Math.max(
+      1,
+      Math.round(srcCells[i].getBoundingClientRect().width),
+    );
     (cols[i] as HTMLTableColElement).style.width = `${w}px`;
   }
 
@@ -440,17 +505,17 @@ function trySyncWithRetries(attempts = 0) {
 }
 
 // 监听窗口 resize（节流）
-let resizeTimer: number | null = null;
+let resizeTimer: null | number = null;
 let themeObserver: MutationObserver | null = null;
 let headerMutationObserver: MutationObserver | null = null;
-let themeDebounceTimer: number | null = null;
+let themeDebounceTimer: null | number = null;
 function safeDebouncedSync() {
   if (themeDebounceTimer) window.clearTimeout(themeDebounceTimer);
   themeDebounceTimer = window.setTimeout(() => {
     try {
       syncTotalsWidths();
-    } catch (e) {
-      console.warn('syncTotalsWidths error', e);
+    } catch (error) {
+      console.warn('syncTotalsWidths error', error);
     }
     themeDebounceTimer = null;
   }, 80) as unknown as number;
@@ -472,16 +537,24 @@ function startThemeObserver() {
 
   // 监听 documentElement 和 body 的 attribute 变更（class 切换通常是 attribute 的变化）
   try {
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-    themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-theme'] });
-  } catch (e) {
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
+    themeObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme'],
+    });
+  } catch (error) {
     // 某些环境可能对 documentElement.observe 不允许，但通常 ok
-    console.warn('startThemeObserver: observe failed', e);
+    console.warn('startThemeObserver: observe failed', error);
   }
 
   // 额外：监听表头的 DOM / 属性变化（有的主题会替换 header 节点或样式节点）
   // 找到真实 grid header（兜底查找）
-  const gridTable = document.querySelector('table:not(.totals-only)') || document.querySelector('.vxe-table table');
+  const gridTable =
+    document.querySelector('table:not(.totals-only)') ||
+    document.querySelector('.vxe-table table');
   const thead = gridTable?.querySelector('thead');
   if (thead) {
     headerMutationObserver = new MutationObserver(() => {
@@ -491,7 +564,11 @@ function startThemeObserver() {
         themeDebounceTimer = null;
       }, 80) as unknown as number;
     });
-    headerMutationObserver.observe(thead, { attributes: true, childList: true, subtree: true });
+    headerMutationObserver.observe(thead, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
   }
 }
 
@@ -505,8 +582,6 @@ function stopThemeObserver() {
     themeDebounceTimer = null;
   }
 }
-
-
 
 function onWinResize() {
   if (resizeTimer) window.clearTimeout(resizeTimer);
@@ -527,20 +602,20 @@ onMounted(() => {
   window.addEventListener('resize', onWinResize);
 });
 
-
-
-
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onWinResize);
   if (resizeTimer) window.clearTimeout(resizeTimer);
 });
 
 // 当合计或列定义变化时再次同步（保证标题文本更新后宽度匹配）
-watch([() => stats.sumDiamond, () => stats.sumGold, () => columns.length], () => {
-  nextTick(() => {
-    syncTotalsWidths();
-  });
-});
+watch(
+  [() => stats.sumDiamond, () => stats.sumGold, () => columns.length],
+  () => {
+    nextTick(() => {
+      syncTotalsWidths();
+    });
+  },
+);
 console.log('[debug SFC] Grid, gridApi =>', Grid, gridApi);
 
 (window as any).__debug_Grid = Grid;
@@ -592,24 +667,41 @@ function goBack() {
       ref="totalsTableRef"
       class="totals-only"
       aria-hidden="true"
-      style="border-collapse: collapse; width:100%; table-layout: fixed; margin-bottom:8px; display:none;"
+      style="
+        display: none;
+        width: 100%;
+        margin-bottom: 8px;
+        table-layout: fixed;
+        border-collapse: collapse;
+      "
     >
       <colgroup>
         <col v-for="col in columns" :key="col.field" />
       </colgroup>
       <thead>
-      <tr>
-        <th
-          v-for="col in columns"
-          :key="col.field"
-          style="padding:6px 8px; font-weight:600; text-align:center; white-space:nowrap; min-height:36px; box-sizing:border-box;"
-        >
-          <template v-if="col.field === 'id'">合计</template>
-          <template v-else-if="col.field === 'crystal'">{{ stats.sumDiamond }}</template>
-          <template v-else-if="col.field === 'gold'">{{ stats.sumGold }}</template>
-          <template v-else>&nbsp;</template>
-        </th>
-      </tr>
+        <tr>
+          <th
+            v-for="col in columns"
+            :key="col.field"
+            style="
+              box-sizing: border-box;
+              min-height: 36px;
+              padding: 6px 8px;
+              font-weight: 600;
+              text-align: center;
+              white-space: nowrap;
+            "
+          >
+            <template v-if="col.field === 'id'">合计</template>
+            <template v-else-if="col.field === 'crystal'">
+              {{ stats.sumDiamond }}
+            </template>
+            <template v-else-if="col.field === 'gold'">
+              {{ stats.sumGold }}
+            </template>
+            <template v-else>&nbsp;</template>
+          </th>
+        </tr>
       </thead>
     </table>
 
@@ -676,20 +768,20 @@ function goBack() {
         </div>
       </template>
       <!-- header slots: 在列头内渲染合计 + 列标题（两行） -->
-<!--      <template #header-name>-->
-<!--        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>-->
-<!--        <div class="header-bottom-cell">玩家名称</div>-->
-<!--      </template>-->
+      <!--      <template #header-name>-->
+      <!--        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>-->
+      <!--        <div class="header-bottom-cell">玩家名称</div>-->
+      <!--      </template>-->
 
-<!--      <template #header-crystal>-->
-<!--        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>-->
-<!--        <div class="header-bottom-cell">剩余钻石</div>-->
-<!--      </template>-->
+      <!--      <template #header-crystal>-->
+      <!--        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>-->
+      <!--        <div class="header-bottom-cell">剩余钻石</div>-->
+      <!--      </template>-->
 
-<!--      <template #header-gold>-->
-<!--        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>-->
-<!--        <div class="header-bottom-cell">剩余金豆</div>-->
-<!--      </template>-->
+      <!--      <template #header-gold>-->
+      <!--        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>-->
+      <!--        <div class="header-bottom-cell">剩余金豆</div>-->
+      <!--      </template>-->
       <template #avatar="{ row }">
         <Image :src="row.headImageUrl" :width="40" :height="40" />
       </template>
@@ -789,18 +881,25 @@ function goBack() {
   gap: 8px;
   justify-content: flex-end;
 }
+
 .totals-only th {
-  /*background: #fafafa;*/
-  /*border-bottom: 1px solid #eee;*/
+  /* background: #fafafa; */
+
+  /* border-bottom: 1px solid #eee; */
   box-sizing: border-box;
   padding: 6px 8px;
   font-size: 13px;
 }
+
 .totals-only {
-  /*background: var(--vben-header-bg, transparent);*/
+  /* background: var(--vben-header-bg, transparent); */
 }
-/*.totals-only th {*/
-/*  color: var(--vben-text-1, #e6eef8) !important;*/
-/*  font-weight: 600;*/
-/*}*/
+
+/* .totals-only th { */
+
+/*  color: var(--vben-text-1, #e6eef8) !important; */
+
+/*  font-weight: 600; */
+
+/* } */
 </style>
