@@ -240,6 +240,7 @@ export async function agentReqGameRecord(opts: {
   } else {
     body.searchType = 0;
     body.pid = pid; // 使用上面计算的 pid（可能是 requestPid 或 caller 指定）
+    body.name = '';
   }
 
   if (opts.startDate) body.startDate = opts.startDate;

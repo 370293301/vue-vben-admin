@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue';
 
 import { Page } from '@vben/common-ui';
 
@@ -10,6 +10,7 @@ import { Button, Image, Input, message, Modal, Select } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { apiGetMemberList } from '#/api/member';
 import MemberActions from '#/components/MemberActions.vue';
+import { createTotalsThemeManager } from '#/utils/totalsThemeManager'; // 按你项目路径调整
 
 const bannedCache: Record<number, boolean> = reactive({});
 
@@ -56,10 +57,10 @@ const rateModalLoading = ref(false);
 const columns: VxeGridProps<any>['columns'] = [
   { field: 'id', title: '玩家ID' },
   { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
-  { field: 'name', title: '玩家名称', slots: { header: 'header-name' } },
+  { field: 'name', title: '玩家名称'},
   { field: 'nobleLevel', title: '贵族等级' },
-  { field: 'crystal', title: '剩余钻石', slots: { header: 'header-crystal' } },
-  { field: 'gold', title: '剩余金豆', slots: { header: 'header-gold' } },
+  { field: 'crystal', title: '剩余钻石' },
+  { field: 'gold', title: '剩余金豆' },
   { field: 'remark', title: '备注' },
   {
     field: 'action',
@@ -160,11 +161,57 @@ const gridOptions: VxeGridProps<any> = {
 };
 
 const [Grid, gridApi] = useVbenVxeGrid<any>({ gridOptions });
+// totals 表格的 DOM ref（独立一行合计）
+const totalsTableRef = ref<HTMLElement | null>(null);
 
-console.log('[debug SFC] Grid, gridApi =>', Grid, gridApi);
+// function getFirstNonTransparentAncestor(el: Element | null) {
+//   let cur: Element | null = el;
+//   while (cur && cur.nodeType === 1) {
+//     const cs = getComputedStyle(cur as Element);
+//     const bgColor = cs.backgroundColor;
+//     const bgImage = cs.backgroundImage;
+//     // 判定为“有背景”的条件 —— 背景色不是 fully transparent 或有背景图片
+//     const isBgColorVisible = !!bgColor && !bgColor.includes('rgba(0, 0, 0, 0)') && !bgColor.includes('transparent');
+//     const hasBgImage = !!bgImage && bgImage !== 'none' && bgImage !== 'initial';
+//     if (isBgColorVisible || hasBgImage) return cur;
+//     cur = cur.parentElement;
+//   }
+//   return null;
+// }
+const vxeGridRef = ref<any>(null);
 
-(window as any).__debug_Grid = Grid;
-(window as any).__debug_gridApi = gridApi;
+
+const totalsManager = createTotalsThemeManager({
+  totalsTableRef,
+  vxeGridRef,
+  columns,
+  stats,
+});
+
+
+
+
+
+
+
+
+
+onMounted(() => {
+  // 等 DOM 渲染完后启动（nextTick 确保 template 中的 table 已存在）
+  nextTick(() => {
+    totalsManager.start();
+  });
+});
+
+onBeforeUnmount(() => {
+  totalsManager.stop();
+});
+
+// 当合计或列定义变化时再次同步（保证标题文本更新后宽度匹配）
+watch([() => stats.sumDiamond, () => stats.sumGold, () => columns.length], () => {
+  nextTick(() => totalsManager.sync());
+});
+
 // 当 sort 变化时触发重新加载（保持在当前页）
 function onSortChange(v: number) {
   sortState.sortType = v;
@@ -206,7 +253,34 @@ function goBack() {
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="玩家列表">
+    <!-- 独立的合计表格（放在 Grid 上方） -->
+    <!-- 放在 Grid 之前（或你希望显示的位置），替换掉旧的 totals-only 表格 -->
+    <table
+      ref="totalsTableRef"
+      class="totals-only"
+      aria-hidden="true"
+      style="border-collapse: collapse; width:100%; table-layout: fixed; margin-bottom:8px; display:none;"
+    >
+      <colgroup>
+        <col v-for="col in columns" :key="col.field" />
+      </colgroup>
+      <thead>
+      <tr>
+        <th
+          v-for="col in columns"
+          :key="col.field"
+          style="padding:6px 8px; font-weight:600; text-align:center; white-space:nowrap; min-height:36px; box-sizing:border-box;"
+        >
+          <template v-if="col.field === 'id'">合计</template>
+          <template v-else-if="col.field === 'crystal'">{{ stats.sumDiamond }}</template>
+          <template v-else-if="col.field === 'gold'">{{ stats.sumGold }}</template>
+          <template v-else>&nbsp;</template>
+        </th>
+      </tr>
+      </thead>
+    </table>
+
+    <Grid ref="vxeGridRef" table-title="玩家列表">
       <template #toolbar-tools>
         <Select
           v-model:value="searchState.field"
@@ -269,20 +343,20 @@ function goBack() {
         </div>
       </template>
       <!-- header slots: 在列头内渲染合计 + 列标题（两行） -->
-      <template #header-name>
-        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>
-        <div class="header-bottom-cell">玩家名称</div>
-      </template>
+<!--      <template #header-name>-->
+<!--        <div class="header-top-cell">总人数：{{ stats.totalCount }}</div>-->
+<!--        <div class="header-bottom-cell">玩家名称</div>-->
+<!--      </template>-->
 
-      <template #header-crystal>
-        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>
-        <div class="header-bottom-cell">剩余钻石</div>
-      </template>
+<!--      <template #header-crystal>-->
+<!--        <div class="header-top-cell">总钻石：{{ stats.sumDiamond }}</div>-->
+<!--        <div class="header-bottom-cell">剩余钻石</div>-->
+<!--      </template>-->
 
-      <template #header-gold>
-        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>
-        <div class="header-bottom-cell">剩余金豆</div>
-      </template>
+<!--      <template #header-gold>-->
+<!--        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>-->
+<!--        <div class="header-bottom-cell">剩余金豆</div>-->
+<!--      </template>-->
       <template #avatar="{ row }">
         <Image :src="row.headImageUrl" :width="40" :height="40" />
       </template>
@@ -382,4 +456,18 @@ function goBack() {
   gap: 8px;
   justify-content: flex-end;
 }
+.totals-only th {
+  /*background: #fafafa;*/
+  /*border-bottom: 1px solid #eee;*/
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.totals-only {
+  /*background: var(--vben-header-bg, transparent);*/
+}
+/*.totals-only th {*/
+/*  color: var(--vben-text-1, #e6eef8) !important;*/
+/*  font-weight: 600;*/
+/*}*/
 </style>

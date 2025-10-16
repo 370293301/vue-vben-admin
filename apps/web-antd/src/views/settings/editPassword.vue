@@ -4,13 +4,40 @@ import { ref } from 'vue';
 import { Page } from '@vben/common-ui';
 
 import { Button, Input, message } from 'ant-design-vue';
+import { agentChangePassWord } from '#/api/account';
 
 const newPassword = ref('');
 
-function onSubmit() {
-  if (!newPassword.value) return message.warning('请输入新密码');
-  // TODO: 调用你的修改密码接口
-  message.success('已提交');
+async function onSubmit() {
+  if (!newPassword.value || !String(newPassword.value).trim()) {
+    return message.warning('请输入新密码');
+  }
+
+  try {
+    // 可选：禁用按钮 / 展示 loading（略）
+    const resp = await agentChangePassWord({
+      newPassWord: newPassword.value.trim(),
+      // requestPid: Number(localStorage.getItem('AGENT_PID') ?? 0), // 可选显式传
+    });
+
+    // 后端返回示例 { result: '成功'/'失败' 或 true/false, message: '...' }
+    const result = resp?.result;
+    const msg = resp?.message ?? '';
+
+    // 根据后端 result 字段进行判断（兼容字符串或 boolean）
+    const ok = result === true || String(result).toLowerCase() === 'true' || String(result).includes('成功') || String(result).toLowerCase() === 'success';
+
+    if (ok) {
+      message.success(msg || '密码修改成功');
+      // 需要的话可以清空输入并跳转/关闭
+      newPassword.value = '';
+    } else {
+      message.error(msg || '密码修改失败');
+    }
+  } catch (err: any) {
+    console.error('[agentChangePassWord] error', err);
+    message.error(err?.message || '请求出错，请稍后重试');
+  }
 }
 </script>
 

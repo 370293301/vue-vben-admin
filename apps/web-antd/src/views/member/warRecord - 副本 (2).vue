@@ -282,12 +282,9 @@ const gridOptions: VxeGridProps<RowItem> = {
         // 映射字段：注意 field 名和 columns 对齐（例子用 pid/headUrl/name/setCount/bigWinnerCount/points/remark）
         const list = (Array.isArray(rawList) ? rawList : []).map((it: any) => {
           const pid = Number(it.pid ?? it.id ?? 0);
-          const isBannedFromServer =
-            it.isBanned === undefined
-              ? it.banned === undefined
-                ? undefined
-                : !!it.banned)
-              : !!it.isBanned;
+          const isBannedFromServer = ('banned' in it)
+            ? !!it.banned
+            : ('isBanned' in it ? !!it.isBanned : undefined);
           const isBanned =
             typeof isBannedFromServer === 'boolean'
               ? isBannedFromServer

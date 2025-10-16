@@ -1,4 +1,6 @@
 :root {
   --vben-text-3: #8c8c8c; /* 你想要的颜色 */
   --vben-text-2: #9aa0a6; /* 浅灰色，按你主题调整 */
+  --vben-header-bg: rgba(18,18,18,0.98);
+  --vben-text-1: #e6eef8;
 }
