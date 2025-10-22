@@ -1,121 +1,41 @@
-<script lang="ts" setup>
-import { onMounted, reactive, ref } from 'vue';
-
-import { Page } from '@vben/common-ui';
-
-import { Button, Card, Select, Statistic } from 'ant-design-vue';
-import dayjs from 'dayjs';
-
-import SimpleLineChart from './SimpleLineChart.vue';
-
-/* ==== 筛选 ==== */
-const cities = ['全部', '杭州', '上海', '北京', '深圳'];
-const filters = reactive({ city: '全部' });
-
-/* ==== 顶部统计 ==== */
-const overview = reactive({
-  playerTotal: 3867,
-  diamondConsumeTotal: 19_392,
-  promoterTotal: 5,
-  promoterSpreadTotal: 0,
-});
-
-/* ==== 工具 & 造数（替换成你的接口） ==== */
-function rnd(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-function makeDays(n = 15) {
-  const list: string[] = [];
-  for (let i = n - 1; i >= 0; i--)
-    list.push(dayjs().subtract(i, 'day').format('MM/DD'));
-  return list;
-}
-
-/* ==== 小图数据：每日新增 / 每日充值 ==== */
-const days = ref<string[]>([]);
-const newUsers = ref<number[]>([]);
-const recharge = ref<number[]>([]);
-
-/* ==== 大图数据：各游戏每日消耗钻石 ==== */
-const gameDays = ref<string[]>([]);
-const gameSeries = ref<any[]>([]);
-const allGames = [
-  '安庆保皇',
-  '德堡',
-  '掼三张',
-  '安庆搓跑快',
-  '枞阳跑得快',
-  '比拼扑克',
-];
-
-/* ==== 拉数（演示版） ==== */
-async function loadAll() {
-  // 顶部统计（若有接口在此赋值）
-  // overview = await api.getOverview({ city: filters.city })
-
-  // 小图
-  days.value = makeDays(15);
-  newUsers.value = days.value
-    .map(() => 0)
-    .map((v, i, arr) => (i === arr.length - 1 ? rnd(45, 60) : v));
-  recharge.value = days.value.map(() => Number((Math.random() * 1).toFixed(2)));
-
-  // 大图
-  gameDays.value = makeDays(16);
-  gameSeries.value = allGames.map((name) => ({
-    name,
-    type: 'line',
-    smooth: true,
-    symbol: 'circle',
-    symbolSize: 6,
-    data: gameDays.value.map(() => rnd(0, 20_000)),
-  }));
-}
-
-function runQuery() {
-  loadAll();
-}
-
-onMounted(() => {
-  runQuery();
-  window.addEventListener('resize', () => {
-    // SimpleLineChart 内部已处理 resize，这里无需额外代码
-  });
-});
-</script>
-
 <template>
   <Page auto-content-height>
     <div class="wrap">
       <!-- 顶部筛选 -->
       <div class="toolbar">
-        <Select v-model:value="filters.city" style="width: 240px">
-          <Select.Option v-for="c in cities" :key="c" :value="c">
-            {{ c }}
-          </Select.Option>
-        </Select>
+        <!-- 原生输入（不依赖 a-input） -->
+        <input
+          readonly
+          :value="filters.city"
+          placeholder="请选择城市（点击展开）"
+          class="city-input"
+          @click="openPicker"
+        />
         <Button type="primary" @click="runQuery">确认</Button>
       </div>
 
-      <!-- 顶部统计 -->
+      <!-- 使用你自定义的 CityPicker（请确保组件路径正确） -->
+      <CityPicker
+        v-model:visible="pickerVisible"
+        v-model:selected="selectedCityIds"
+        :cities="citiesData"
+        @confirm="onConfirm"
+        @cancel="onCancel"
+      />
+
+      <!-- 统计卡片 -->
       <div class="stats">
         <Card size="small" class="stat">
           <Statistic title="玩家总数" :value="overview.playerTotal" />
         </Card>
         <Card size="small" class="stat">
-          <Statistic
-            title="钻石消耗总数"
-            :value="overview.diamondConsumeTotal"
-          />
+          <Statistic title="钻石消耗总数" :value="overview.diamondConsumeTotal" />
         </Card>
         <Card size="small" class="stat">
           <Statistic title="推广员总数量" :value="overview.promoterTotal" />
         </Card>
         <Card size="small" class="stat">
-          <Statistic
-            title="推广员推广数量"
-            :value="overview.promoterSpreadTotal"
-          />
+          <Statistic title="推广员推广数量" :value="overview.promoterSpreadTotal" />
         </Card>
       </div>
 
@@ -142,7 +62,7 @@ onMounted(() => {
         </Card>
       </div>
 
-      <!-- 底部大图：各游戏每日消耗钻石 -->
+      <!-- 大图 -->
       <Card size="small" class="bigCard">
         <SimpleLineChart
           title="各游戏每日消耗钻石"
@@ -157,40 +77,165 @@ onMounted(() => {
   </Page>
 </template>
 
+<script lang="ts" setup>
+import { onMounted, reactive, ref, computed, watch } from 'vue';
+import { Page } from '@vben/common-ui';
+import { Button, Card, Statistic } from 'ant-design-vue';
+import dayjs from 'dayjs';
+
+// 本目录下的轻量折线图组件（如果你希望用 echarts，请自行替换为 echarts 版）
+import SimpleLineChart from './SimpleLineChart.vue';
+
+// 你自定义的 CityPicker（路径按你项目实际位置调整）
+import CityPicker from '#/components/CityPicker.vue';
+// 城市 JSON（路径按你项目实际位置调整）
+import citiesData from '#/data/cities.json';
+
+function onConfirm(list: any[]) {
+  console.log('用户确认：', list);
+}
+function onCancel() {
+  console.log('取消');
+}
+
+/* ==== 城市筛选（父端） ==== */
+interface CityNode { id:number; name:string; level:number; children?:CityNode[]; pid?:number; }
+const selectedCityIds = ref<number[]>([]);
+const pickerVisible = ref(false);
+const cityId = ref<string>('');
+const filters = reactive<{ city: string | '' }>({ city: '' });
+
+const thirdLevelCities = computed(() => {
+  const list: CityNode[] = [];
+  if (!Array.isArray(citiesData)) return list;
+  for (const prov of citiesData as CityNode[]) {
+    if (!prov.children) continue;
+    for (const city of prov.children) {
+      if (!city.children) continue;
+      for (const node of city.children) {
+        if (node.level === 3) list.push(node);
+      }
+    }
+  }
+  return list;
+});
+
+watch(selectedCityIds, (newIds) => {
+  if (!newIds || newIds.length === 0) {
+    filters.city = '';
+    cityId.value = '';
+    return;
+  }
+  const names: string[] = [];
+  const idSet = new Set(newIds);
+  for (const node of thirdLevelCities.value) {
+    if (idSet.has(node.id)) names.push(node.name);
+  }
+  filters.city = names.join(',');
+  cityId.value = newIds.join(',');
+});
+
+/* ==== 其它不变的逻辑（统计、造数等） ==== */
+const overview = reactive({
+  playerTotal: 3867,
+  diamondConsumeTotal: 19392,
+  promoterTotal: 5,
+  promoterSpreadTotal: 0,
+});
+
+function rnd(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function makeDays(n = 15) {
+  const list: string[] = [];
+  for (let i = n - 1; i >= 0; i--)
+    list.push(dayjs().subtract(i, 'day').format('MM/DD'));
+  return list;
+}
+
+const days = ref<string[]>([]);
+const newUsers = ref<number[]>([]);
+const recharge = ref<number[]>([]);
+const gameDays = ref<string[]>([]);
+const gameSeries = ref<any[]>([]);
+const allGames = [
+  '安庆保皇',
+  '德堡',
+  '掼三张',
+  '安庆搓跑快',
+  '枞阳跑得快',
+  '比拼扑克',
+];
+
+async function loadAll() {
+  days.value = makeDays(15);
+  newUsers.value = days.value
+    .map(() => 0)
+    .map((v, i, arr) => (i === arr.length - 1 ? rnd(45, 60) : v));
+  recharge.value = days.value.map(() => Number((Math.random() * 1).toFixed(2)));
+
+  gameDays.value = makeDays(16);
+  gameSeries.value = allGames.map((name) => ({
+    name,
+    type: 'line',
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 6,
+    data: gameDays.value.map(() => rnd(0, 20000)),
+  }));
+}
+
+function runQuery() {
+  loadAll();
+}
+
+function openPicker() {
+  pickerVisible.value = true;
+}
+
+onMounted(() => {
+  runQuery();
+});
+</script>
+
 <style scoped>
 .wrap {
   padding: 16px;
 }
-
 .toolbar {
   display: flex;
   gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
 }
-
+.city-input {
+  width: 360px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: white;
+}
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 0;
 }
-
 .stat :deep(.ant-statistic-title) {
   font-size: 13px;
   color: #666;
 }
-
 .row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 12px;
 }
-
 .chartCard {
   min-height: 260px;
 }
-
 .bigCard {
   margin-top: 12px;
+  min-height: 320px;
 }
 </style>
