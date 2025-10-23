@@ -206,8 +206,27 @@ function removeOne(item: any) {
     emit('update:selected', arr);
   }
 }
+// function handleConfirm() {
+//   emit('confirm', selectedItems.value);
+//   visibleModel.value = false;
+// }
+
 function handleConfirm() {
-  emit('confirm', selectedItems.value);
+  // selectedIds 是子组件内部维护的 number[]（你代码里已有）
+  const ids = selectedIds.value || [];
+
+  // payload 规则：多个 -> "1,2,3"（字符串），一个 -> 123（数字），无 -> null
+  let payload: string | number | null = null;
+  if (ids.length > 1) {
+    payload = ids.join(',');
+  } else if (ids.length === 1) {
+    payload = ids[0];
+  }
+
+  // 发事件到父：父的 @confirm 会拿到这个 payload
+  emit('confirm', payload);
+
+  // 关闭弹窗（通过 v-model:visible 与父同步）
   visibleModel.value = false;
 }
 function handleCancel() {

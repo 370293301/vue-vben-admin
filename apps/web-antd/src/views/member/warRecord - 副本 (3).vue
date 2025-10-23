@@ -2,8 +2,7 @@
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { createVNode, reactive, ref, render } from 'vue';
-import dayjs from 'dayjs';
-import { useRouter } from 'vue-router'; /* === MOD: 用 router 跳转到 RecordList 页面 */
+
 import { Page } from '@vben/common-ui';
 
 import {
@@ -21,21 +20,18 @@ import { agentReqGameRecord } from '#/api/game';
 import MemberActions from '#/components/MemberActions.vue';
 
 import DetailModalContent from './DetailModalContent.vue';
-const router = useRouter(); /* === MOD: router */
+
 const { RangePicker } = DatePicker; // 根据实际路径调整
 
 // 弹窗状态
+// const detailModalVisible = ref(false);
+// const detailLoading = ref(false);
+// const detailRecords = ref<GameDetailRecord[]>([]);
+// const detailPage = ref(1);
 const detailPageSize = ref(10);
+// const detailTotalPages = ref(0);
+// const detailPid = ref<number | null>(null);
 
-/* === MOD: 当点击战绩得分时，跳转到 RecordList 页面（并传 pid） */
-function openRecordList(row: any) {
-  const pid = Number(row.pid ?? row.id ?? row._raw?.pid ?? 0);
-  if (!pid) {
-    message.warning('无效的 pid');
-    return;
-  }
-  router.push({ name: 'RecordList', query: { pid: String(pid) } });
-}
 // 打开弹窗（由列表中点击“战绩得分”时调用）
 // row: 当前行对象（含 pid）
 function openDetailModal(row: any, page = 1) {
@@ -70,7 +66,58 @@ function openDetailModal(row: any, page = 1) {
   render(vnode, container);
 }
 
-
+// async function fetchDetailPage() {
+//   if (!detailPid.value) return;
+//   // 明确取出 sortType 并打印（必做）
+//   const sortType = Number(searchState?.sortType ?? 0);
+//   console.log('[debug] fetchDetailPage -> pid, page, sortType =', detailPid.value, detailPage.value, sortType);
+//
+//   detailLoading.value = true;
+//   try {
+//     // 确保 agentReqGameDetailRecord 实现能把 sortType 写入 body（见下方说明）
+//     const resp = await agentReqGameDetailRecord({
+//       pid: detailPid.value,
+//       pagNum: detailPage.value,
+//       showNum: detailPageSize.value,
+//       sortType, // <-- 一定要传这个
+//       requestPid: Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
+//     });
+//
+//     // 后端返回层次可能不一样，统一解析
+//     const payload = (resp && (resp.data ?? resp)) ?? {};
+//     // 假设后端返回： payload.listInfo 是一个 list，每个元素是一个回合（包含 time, roomKey, recordCode, listInfo/players）
+//     const rawList = payload.listInfo ?? payload.list ?? [];
+//
+//     // 把后端的结构标准化到 detailRecords 的结构： { time, roomKey, recordCode, players: [ {pid,name,headUrl,points} ] }
+//     detailRecords.value = (Array.isArray(rawList) ? rawList : []).map((round: any) => {
+//       const playersRaw = round.listInfo ?? round.players ?? [];
+//       return {
+//         time: round.time ?? round.date ?? '',
+//         roomKey: round.roomKey ?? round.roomKeyId ?? '',
+//         recordCode: round.recordCode ?? round.replayCode ?? '',
+//         players: (Array.isArray(playersRaw) ? playersRaw : []).map((p: any) => ({
+//           pid: Number(p.pid ?? p.id ?? 0),
+//           name: p.name ?? p.nickname ?? '',
+//           headUrl: p.headUrl ?? p.avatar ?? '',
+//           points: Number(p.points ?? p.score ?? 0),
+//         })),
+//       };
+//     });
+//
+//     detailTotalPages.value = Number(payload.totalPages ?? payload.totalPagesCount ?? payload.total ?? 1);
+//   } catch (err) {
+//     console.error('[debug] fetchDetailPage error', err);
+//     message.error('获取战绩明细失败');
+//   } finally {
+//     detailLoading.value = false;
+//   }
+// }
+//
+// // 翻页（弹窗内）
+// function onDetailPageChange(p: number) {
+//   detailPage.value = p;
+//   fetchDetailPage();
+// }
 
 // 初始 AGENT_PID（请求者 / 顶级 pid）
 const AGENT_PID = Number(
@@ -509,7 +556,7 @@ function viewChildrenFromActions(row: RowItem) {
 
       <template #score="{ row }">
         <a
-          @click.prevent="openRecordList(row)"
+          @click.prevent="openDetailModal(row)"
           style="font-weight: 600; text-decoration: underline; cursor: pointer"
         >
           {{ row.points }}

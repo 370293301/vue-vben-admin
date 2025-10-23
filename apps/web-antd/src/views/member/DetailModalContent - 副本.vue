@@ -11,7 +11,6 @@ const props = defineProps<{
   onClose: () => void; // 关闭回调（父组件传入）
   pageSize?: number; // 每页数量，默认 10
   pid: number; // 要查看战绩的 PID（必须）
-  filterRoomId?: string | number | null; /* === MOD: 可选 roomId（客户端过滤或传给后端） */
 }>();
 
 // 内部状态
@@ -48,7 +47,6 @@ async function loadPage(p = 1) {
           localStorage.getItem('ACCOUNT_ID') ??
           0,
       ),
-      roomId: props.filterRoomId ?? undefined, /* === MOD: 如果后端支持，会用于过滤 */
     });
 
     // 你的 agentReqGameDetailRecord 已经返回 normalized { records, totalPages, total }（若实现如前所述）

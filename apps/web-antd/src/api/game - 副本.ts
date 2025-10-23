@@ -1,6 +1,6 @@
 // src/api/game.ts
 import { apiJavaPost } from '#/api/auth';
-import dayjs from 'dayjs';
+
 /** Java 签名配置（和 member.ts 一致） */
 const JAVA_SECRET =
   (import.meta.env?.VITE_JAVA_SECRET as string) ||
@@ -14,17 +14,11 @@ const JAVA_BASE = import.meta.env.PROD
 export const AGENT_REQ_GAME_RECORD_URL = import.meta.env.PROD
   ? `${JAVA_BASE}/agentReqGameRecord`
   : '/api/agentReqGameRecord';
-export const AGENT_REQ_PLAYER_GAME_RECORD_URL = import.meta.env.PROD
-  ? `${JAVA_BASE}/agentReqPlayerGameRecord`
-  : '/api/agentReqPlayerGameRecord'; /* === MOD: 新接口 URL */
 
 export const AGENT_REQ_GAME_DETAIL_RECORD_URL = import.meta.env.PROD
   ? `${JAVA_BASE}/agentReqGameDetailRecord`
   : '/api/agentReqGameDetailRecord';
 
-export const AGENT_REQ_PAY_BACK_URL = import.meta.env.PROD
-  ? `${JAVA_BASE}/agentReqPayBack`
-  : '/api/agentReqPayBack';
 /** types */
 export interface AgentGameRecordItem {
   pid: number;
@@ -142,7 +136,6 @@ export async function agentReqGameDetailRecord(opts: {
   requestPid?: number | string;
   showNum?: number | string;
   sortType?: number | string;
-  roomId?: string | number;
 }) {
   const pid = Number(
     opts.pid ??
@@ -168,7 +161,7 @@ export async function agentReqGameDetailRecord(opts: {
     sortType,
     requestPid,
   };
-  if (opts.roomId) body.roomId = opts.roomId; /* === MOD: 如果提供则传给后端 */
+
   console.log(
     '[debug] agentReqGameDetailRecord ->',
     AGENT_REQ_GAME_DETAIL_RECORD_URL,
@@ -273,163 +266,7 @@ export async function agentReqGameRecord(opts: {
   };
 }
 
-/**
- * agentReqPlayerGameRecord（战绩记录：room 列表）
- * 参数说明（按后端约定简化为单 pid）:
- * - pid: 单个玩家 pid（必传或回退到 AGENT_PID）
- * - pagNum, showNum
- * - timeType: 0 今天, 1 昨天, 2 七天内（可选）
- * - specificDate: 字符串或 Date（若提供则格式化为 YYYYMMDD 并放到 time 字段）
- * - gameType: 0 所有游戏 或 具体 gameType（可选）
- * - requestPid: AGENT_PID（可选）
- */
-export async function agentReqPlayerGameRecord(opts: {
-  pid?: number | string;
-  pagNum?: number | string;
-  showNum?: number | string;
-  timeType?: number | string;
-  specificDate?: string | Date;
-  gameType?: number | string;
-  requestPid?: number | string;
-}) {
-  const pagNum = Number(opts.pagNum ?? 1);
-  const showNum = Number(opts.showNum ?? 10);
-  const pid = Number(
-    opts.pid ??
-    localStorage.getItem('AGENT_PID') ??
-    localStorage.getItem('ACCOUNT_ID') ??
-    0,
-  );
-  if (!Number.isFinite(pid) || pid <= 0) {
-    console.warn('[agentReqPlayerGameRecord] invalid pid, fallback to 0', opts);
-  }
-
-  const requestPid = Number(
-    opts.requestPid ??
-    localStorage.getItem('AGENT_PID') ??
-    localStorage.getItem('ACCOUNT_ID') ??
-    0,
-  );
-
-  const body: Record<string, any> = {
-    pid,
-    pagNum,
-    showNum,
-    requestPid,
-  };
-
-  // 可选：timeType 优先（0/1/2），若要指定具体某日则传 specificDate -> 转为 time=YYYYMMDD
-  if (opts.timeType !== undefined && opts.timeType !== null) {
-    body.timeType = Number(opts.timeType);
-  }
-  if (opts.specificDate) {
-    const d = opts.specificDate;
-    // 后端期望 YYYYMMDD，例如 '20251010'
-    body.time = typeof d === 'string' ? d : dayjs(d).format('YYYYMMDD');
-  }
-
-  if (opts.gameType !== undefined && opts.gameType !== null) {
-    body.gameType = Number(opts.gameType);
-  }
-
-  console.log('[debug] agentReqPlayerGameRecord body=', body, 'endpoint=', AGENT_REQ_PLAYER_GAME_RECORD_URL);
-
-  const resp = await apiJavaPost(AGENT_REQ_PLAYER_GAME_RECORD_URL, body, JAVA_SECRET, {
-    contentType: 'form',
-    secretKeyName: JAVA_SECRET_KEY_NAME,
-  });
-
-  console.log('[debug] agentReqPlayerGameRecord resp=', resp);
-  return resp as unknown as { [k: string]: any; data?: any; status?: number; };
-}
-/**
- * 玩家收益列表（agentReqPayBack）
- * body:
- *  - pid:            当前查询ID（列表时 = 目标 pid；搜索按规则见下）
- *  - pagNum:         页码
- *  - showNum:        每页数
- *  - sortType:       0默认 1贡献↓ 2贡献↑ 3收益↓ 4收益↑
- *  - searchType:     玩家列表发0  查询发1
- *  - name:           姓名（必填，字符串；没有就空字符串）
- *  - timeSpace:      某天 0 点时间戳（long；毫秒）
- *  - requestPid:     请求者ID（AGENT_PID / ACCOUNT_ID）
- * 搜索：
- *  - id 搜索：searchType=1, pid=数值, name=''
- *  - 姓名搜索：searchType=1, pid=0（或保持上下文 pid，具体后端要求二选一），name=关键字
- */
-export async function agentReqPayBack(params: {
-  page: number;
-  pageSize: number;
-  sortType?: number;                 // 0默认 1贡献↓ 2贡献↑ 3我的收益↓ 4我的收益↑
-  field?: 'uid' | 'nickname';
-  keyword?: string;
-  targetPid?: number | string;       // 列表上下文 pid
-  date?: Date | string | number | null;
-}) {
-  const requestPid = Number(
-    localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0,
-  );
-
-  const pagNum = Number(params.page ?? 1);
-  const showNum = Number(params.pageSize ?? 10);
-
-  let sortType = Number(params.sortType ?? 0);
-  if (!Number.isFinite(sortType) || sortType < 0 || sortType > 4) sortType = 0;
-
-  const field = (params.field ?? 'uid') as 'uid' | 'nickname';
-  const keyword = String(params.keyword ?? '').trim();
-  const isSearching = !!keyword;
-
-  const targetPid =
-    params.targetPid !== undefined && params.targetPid !== null
-      ? Number(params.targetPid)
-      : requestPid;
-
-  // 必发：当天 0 点（毫秒 Long）
-  const timeSpace = dayjs(params.date ?? new Date()).startOf('day').valueOf();
-
-  const body: Record<string, any> = {
-    pagNum,
-    showNum,
-    sortType,
-    requestPid,
-    pid: targetPid,    // 默认列表上下文 pid
-    searchType: 0,
-    name: '',          // 后端要求必传字符串
-    timeSpace,         // Long 毫秒
-  };
-
-  if (isSearching) {
-    body.searchType = 1;
-    if (field === 'uid') {
-      const maybe = Number(keyword);
-      body.pid = Number.isFinite(maybe) ? maybe : 0;
-      body.name = ''; // ID 搜索时 name 仍必须是空字符串
-    } else {
-      body.pid = 0;            // 姓名搜索按你描述传 0
-      body.name = keyword;     // name 赋为关键词
-    }
-  }
-
-  console.log('[debug] agentReqPayBack body =', body);
-
-  const resp = await apiJavaPost(
-    AGENT_REQ_PAY_BACK_URL,
-    body,
-    JAVA_SECRET,
-    { contentType: 'form', secretKeyName: JAVA_SECRET_KEY_NAME },
-  );
-
-  return resp as unknown as { data?: any; status?: number };
-}
-
-
-
 export default {
   agentReqGameRecord,
-  agentReqPlayerGameRecord,
   agentReqGameDetailRecord,
-  agentReqPayBack,
-
-
 };

@@ -38,6 +38,7 @@ export async function getAllMenusApi(): Promise<any[]> {
         noBasicLayout: false,
       },
     },
+
     {
       name: 'memberRecord',
       path: '/memberRecord',
@@ -45,6 +46,18 @@ export async function getAllMenusApi(): Promise<any[]> {
       meta: {
         title: '玩家战绩',
         icon: 'carbon:badge',
+        noBasicLayout: false,
+      },
+    },
+    // 新增：战绩记录页面路由
+    {
+      name: 'RecordList',
+      path: '/record-list',
+      component: '/member/RecordList',
+      meta: {
+        title: '战绩记录',
+        icon: 'mdi:clipboard-list',
+        hideInMenu: true, // 隐藏在侧边栏菜单中
         noBasicLayout: false,
       },
     },
@@ -58,6 +71,7 @@ export async function getAllMenusApi(): Promise<any[]> {
         noBasicLayout: false,
       },
     },
+
     {
       meta: {
         title: '设置',

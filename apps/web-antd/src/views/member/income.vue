@@ -1,110 +1,148 @@
 <script lang="ts" setup>
-import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { reactive, ref } from 'vue';
+// ====== 基础 ======
+import type { VxeGridProps } from '#/adapter/vxe-table';
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
+import dayjs from 'dayjs';
 
 import { Page } from '@vben/common-ui';
-
-import {
-  Button,
-  Col,
-  DatePicker,
-  Image,
-  Input,
-  message,
-  Row,
-  Select,
-  Statistic,
-  Tag,
-} from 'ant-design-vue';
-
+import { Button, Image, Input, message, Modal, Select, DatePicker } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { apiGetMemberList } from '#/api/member'; // 没有就用 axios.get 替换
 
-type MemberRow = {
-  headImageUrl: string;
-  id: number | string;
-  identity: string;
-  incomeContrib: number;
-  incomeType: string;
-  myIncome: number;
-  name: string;
-};
+// 你已有组件/工具
+import MemberActions from '#/components/MemberActions.vue';
+import { createTotalsThemeManager } from '#/utils/totalsThemeManager';
 
-const RangePicker = DatePicker.RangePicker;
+// === MOD: 引入收益接口 ===
+import { agentReqPayBack } from '#/api/game';
 
-// 顶部搜索状态
+const bannedCache: Record<number, boolean> = reactive({});
+
+// ====== 搜索 / 排序 / 目标PID ======
 const searchState = reactive({
-  field: 'uid', // uid | nickname
+  field: 'uid' as 'nickname' | 'uid',
   keyword: '',
-  dates: [] as [] | [string, string],
 });
 
-// 顶部统计（中间那两个“30”、“100”）
-const totalPlayers = ref<number>(30);
-const myIncomeTotal = ref<number>(100);
+// === MOD: 收益排序（0默认、1贡献↓、2贡献↑、3我的收益↓、4我的收益↑） ===
+const sortState = reactive({
+  sortType: 0,
+});
+const sortOptions = [
+  { label: '默认排序', value: 0 },
+  { label: '贡献 ↓', value: 1 },
+  { label: '贡献 ↑', value: 2 },
+  { label: '我的收益 ↓', value: 3 },
+  { label: '我的收益 ↑', value: 4 },
+];
 
-// 表格列
-const columns: VxeGridProps<MemberRow>['columns'] = [
-  { type: 'seq', title: 'ID', width: 70 },
-  {
-    field: 'headImageUrl',
-    title: '头像',
-    width: 80,
-    showOverflow: false,
-    slots: { default: 'avatar' },
-  },
-  { field: 'identity', title: '身份', width: 100 },
-  { field: 'name', title: '玩家名称', minWidth: 160 },
-  { field: 'incomeContrib', title: '收益贡献', width: 110 },
-  { field: 'incomeType', title: '收益类型', width: 100 },
-  { field: 'myIncome', title: '我的收益', width: 110 },
+// === MOD: 日期（必传 timeSpace，未选则默认“今天0点”） ===
+const filterDate = ref<Date | null>(null);
+
+// 当前查询的目标 pid（用于“查看下级”功能）
+const currentTargetPid = ref<number>(
+  Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
+);
+// pid 历史栈：用于返回上一级
+const pidStack = ref<number[]>([]);
+
+// ====== 合计/统计 ======
+const stats = reactive({
+  totalPages: 0,
+  sumPayBack: 0,       // === MOD: 总收益
+  sumContribution: 0,  // === MOD: 总贡献
+});
+
+// （若需要）调分成弹窗
+const showRateModal = ref(false);
+const rateInput = ref('');
+const rateModalLoading = ref(false);
+
+// ====== 列定义（收益维度） ======
+const columns: VxeGridProps<any>['columns'] = [
+  { field: 'pid', title: '玩家ID' }, // === MOD
+  { field: 'headUrl', title: '头像', slots: { default: 'avatar' }, width: 90 },
+  { field: 'level', title: '身份', width: 90 },
+  { field: 'name', title: '玩家名称' },
+  { field: 'contributions', title: '收益贡献', width: 120 },  // === MOD
+  { field: 'revenueType', title: '收益类型', width: 120 },    // === MOD
+  { field: 'revenue', title: '我的收益', width: 120 },        // === MOD
   {
     field: 'action',
     title: '操作',
-    minWidth: 520,
     showOverflow: false,
-    fixed: 'right',
     slots: { default: 'action' },
+    width: 220,
   },
 ];
 
-// 表格配置
-const gridOptions: VxeGridProps<MemberRow> = {
+// ====== Grid 配置 ======
+const gridOptions: VxeGridProps<any> = {
   columns,
   height: 'auto',
-  stripe: true,
-  border: true,
   pagerConfig: { currentPage: 1, pageSize: 10, pageSizes: [10, 20, 50, 100] },
   toolbarConfig: { custom: true, export: false, refresh: false, zoom: false },
   proxyConfig: {
     sort: false,
     ajax: {
       query: async ({ page }) => {
-        const [startAt, endAt] = (searchState.dates as any) || [];
-        const params = {
+        // === MOD: ALWAYS 传 timeSpace & name（后端必填）
+        const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+        const timeSpaceMs = dayjs(filterDate.value ?? new Date()).startOf('day').valueOf(); // Long 毫秒
+
+        // === MOD: 请求收益接口
+        const resp = await agentReqPayBack({
           page: page.currentPage,
           pageSize: page.pageSize,
           field: searchState.field,
           keyword: searchState.keyword,
-          startAt,
-          endAt,
-        };
-        // 如果没有封装 api：用 axios.get('http://127.0.0.1:5566/api/v1/agent/players', { params })
-        const res = await apiGetMemberList(params);
+          sortType: sortState.sortType,
+          targetPid: currentTargetPid.value,
+          date: filterDate.value ?? new Date(), // 兜底今天
+        });
 
-        // ★ 按你的后端结构映射（下面只是示例字段名，照你的返回调整）
-        // rows: res.data.data.list
-        // total: res.data.data.total
-        // summary: { totalPlayers, myIncomeTotal, myShareRate }
-        const list = (res?.data?.data?.list ?? []) as MemberRow[];
-        const total = res?.data?.data?.total ?? 0;
-        totalPlayers.value =
-          res?.data?.data?.summary?.totalPlayers ?? totalPlayers.value;
-        myIncomeTotal.value =
-          res?.data?.data?.summary?.myIncomeTotal ?? myIncomeTotal.value;
-        myShareRate.value =
-          res?.data?.data?.summary?.myShareRate ?? myShareRate.value;
+        const maybe = resp?.data ?? resp ?? {};
+        const payload = maybe.data ?? maybe;
+        const rawList = payload.listInfo ?? payload.list ?? [];
+
+        // === MOD: 更新合计
+        stats.sumPayBack = Number(payload.sumPayBack ?? payload.sumPayback ?? 0);
+        stats.sumContribution = Number(payload.sumContribution ?? 0);
+        stats.totalPages = Number(payload.totalPages ?? payload.total ?? 1);
+
+        // 计算 total（优先后端 total；否则估算）
+        let total = 0;
+        if (typeof payload.total === 'number') {
+          total = payload.total;
+        } else if (payload.totalPages === 1) {
+          total = Array.isArray(rawList) ? rawList.length : 0;
+        } else if (typeof payload.totalPages === 'number' && payload.totalPages > 1) {
+          total = payload.totalPages * page.pageSize;
+        } else {
+          total = Array.isArray(rawList) ? rawList.length : 0;
+        }
+
+        // === MOD: 规范化每行
+        const list = (Array.isArray(rawList) ? rawList : []).map((it: any) => {
+          const pid = Number(it.pid ?? it.id ?? 0);
+          return {
+            pid,
+            headUrl: it.headUrl ?? it.avatar ?? it.headImageUrl ?? '',
+            level: it.level ?? it.identity ?? 0,
+            name: it.name ?? it.nickname ?? '',
+            contributions: Number(it.contributions ?? it.contribution ?? 0),
+            revenueType: it.revenueType ?? it.revenue_type ?? '',
+            revenue: Number(it.revenue ?? it.myRevenue ?? it.revenueValue ?? 0),
+            _raw: { ...it, pid },
+          };
+        });
 
         return { items: list, total };
       },
@@ -112,128 +150,160 @@ const gridOptions: VxeGridProps<MemberRow> = {
   },
 };
 
-// 适配器
-const [Grid, gridApi] = useVbenVxeGrid<MemberRow>({ gridOptions });
+const [Grid, gridApi] = useVbenVxeGrid<any>({ gridOptions });
 
-// 顶部“我的分成比例：80%”
-const myShareRate = ref<number>(80);
+// ====== 合计行（顶置表） ======
+const totalsTableRef = ref<HTMLElement | null>(null);
+const vxeGridRef = ref<any>(null);
+const totalsManager = createTotalsThemeManager({
+  totalsTableRef,
+  vxeGridRef,
+  columns,
+  stats,
+});
 
-// 操作列事件
-function viewChildren(row: MemberRow) {
-  message.info(`查看下级：${row.id}`);
+onMounted(() => nextTick(() => totalsManager.start()
+));
+
+onBeforeUnmount(() => totalsManager.stop());
+watch([() => stats.sumPayBack, () => stats.sumContribution, () => columns.length], () => {
+  nextTick(() => totalsManager.sync());
+});
+
+// ====== 交互 ======
+function onSortChange(v: number) {
+  sortState.sortType = v;
+  gridApi.reload();
 }
-function setPromoter(row: MemberRow) {
-  message.success(`设为推广员：${row.id}`);
+
+function viewChildren(row: any) {
+  const target = Number(row._raw?.pid ?? row.pid ?? 0);
+  if (!target) {
+    message.warning('无效的子集 pid');
+    return;
+  }
+  pidStack.value.push(currentTargetPid.value);
+  currentTargetPid.value = target;
+  gridApi.reload();
 }
-function setRemark(row: MemberRow) {
-  message.info(`设置备注：${row.id}`);
+
+function goBack() {
+  if (!pidStack.value.length) return;
+  const prev = pidStack.value.pop() as number;
+  currentTargetPid.value = prev;
+  gridApi.reload();
 }
-function changeBelong(row: MemberRow) {
-  message.info(`从属修改：${row.id}`);
-}
-function freeze(row: MemberRow) {
-  message.warning(`冻结：${row.id}`);
-}
-function adjustShare(row: MemberRow) {
-  message.info(`调整充值分成比例：${row.id}`);
+
+// 可选：调分成弹窗（保留）
+function confirmRate() {
+  rateModalLoading.value = true;
+  setTimeout(() => {
+    rateModalLoading.value = false;
+    showRateModal.value = false;
+  }, 600);
 }
 </script>
 
 <template>
   <Page auto-content-height>
-    <Grid table-title="玩家列表">
-      <!-- 工具栏（与图一致：选择日期 / 分成比例 / 字段下拉 / 关键词 / search） -->
-      <template #toolbar-tools>
-        <RangePicker
-          v-model:value="searchState.dates"
-          style="width: 260px; margin-right: 8px"
-          :allow-clear="true"
-          :input-read-only="true"
-          placeholder="选择日期"
-        />
-        <Tag color="blue" style="margin-right: 12px">
-          我的分成比例：{{ myShareRate }}%
-        </Tag>
+    <!-- === MOD: 顶部合计表（复制头背景，显示合计“贡献/收益”） === -->
+    <table
+      ref="totalsTableRef"
+      class="totals-only"
+      aria-hidden="true"
+      style="display: none; width: 100%; margin-bottom: 8px; table-layout: fixed; border-collapse: collapse;"
+    >
+      <colgroup>
+        <col v-for="col in columns" :key="col.field" />
+      </colgroup>
+      <thead>
+      <tr>
+        <th v-for="(col, idx) in columns" :key="col.field">
+          <template v-if="idx === 0">合计</template>
+          <template v-else-if="col.field === 'contributions'">{{ stats.sumContribution }}</template>
+          <template v-else-if="col.field === 'revenue'">{{ stats.sumPayBack }}</template>
+          <template v-else>&nbsp;</template>
+        </th>
+      </tr>
+      </thead>
+    </table>
 
-        <Select
-          v-model:value="searchState.field"
-          style="width: 120px; margin-right: 8px"
-        >
+    <Grid ref="vxeGridRef" table-title="玩家收益">
+      <template #toolbar-tools>
+        <!-- 搜索：ID / 姓名 -->
+        <Select v-model:value="searchState.field" style="width: 120px; margin-right: 8px">
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
         </Select>
+        <Input v-model:value="searchState.keyword" placeholder="搜索内容" allow-clear style="width: 220px; margin-right: 8px" />
 
-        <Input
-          v-model:value="searchState.keyword"
-          placeholder="搜索内容"
-          allow-clear
-          style="width: 220px; margin-right: 8px"
-        />
-        <Button type="primary" @click="() => gridApi.commitProxy('query')">
-          search
-        </Button>
+        <!-- 排序：贡献 / 我的收益 -->
+        <Select v-model:value="sortState.sortType" @change="onSortChange" style="width: 160px; margin-right: 8px">
+          <Select.Option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </Select.Option>
+        </Select>
 
-        <!-- 右侧刷新 -->
+        <!-- === MOD: 日期选择（若未选，接口自动发今天0点） === -->
+        <DatePicker v-model:value="filterDate" style="width: 160px; margin-right: 8px" placeholder="选择日期（当天0点）" />
+
+        <Button type="primary" @click="() => gridApi.query()">查询</Button>
+
+        <!-- 当前对象 + 刷新 -->
+        <div style="display: inline-flex; gap: 12px; align-items: center; margin-left: 16px;">
+          <div>当前查询 pid: {{ currentTargetPid }}</div>
+        </div>
         <div style="display: inline-flex; gap: 8px; margin-left: 16px">
           <Button @click="() => gridApi.query()">刷新当前页</Button>
           <Button @click="() => gridApi.reload()">刷新并回到第一页</Button>
         </div>
-      </template>
 
-      <!-- 统计区（放在表格标题下，尽量还原中间“30 / 100”的效果） -->
-      <template #toolbar-bottom>
-        <Row justify="center" style="padding: 8px 0 4px">
-          <Col :span="4" style="text-align: center">
-            <Statistic :value="totalPlayers" title="玩家数" />
-          </Col>
-          <Col :span="4" style="text-align: center">
-            <Statistic :value="myIncomeTotal" title="我的收益" />
-          </Col>
-        </Row>
-      </template>
-
-      <!-- 头像列 -->
-      <template #avatar="{ row }">
-        <Image :src="row.headImageUrl" :width="40" :height="40" />
-      </template>
-
-      <!-- 操作列 -->
-      <template #action="{ row }">
-        <div style="display: flex; flex-wrap: wrap; gap: 4px">
-          <Button size="small" type="primary" ghost @click="viewChildren(row)">
-            查看下级
-          </Button>
-          <Button size="small" type="primary" ghost @click="setPromoter(row)">
-            设为推广员
-          </Button>
-          <Button size="small" @click="setRemark(row)">设置备注</Button>
-          <Button size="small" @click="changeBelong(row)">从属修改</Button>
-          <Button size="small" danger @click="freeze(row)">冻结</Button>
-          <Button size="small" @click="adjustShare(row)">
-            调整充值分成比例
-          </Button>
+        <div style="display: inline-flex; gap: 12px; align-items: center">
+          <Button v-if="pidStack.length > 0" type="default" style="margin-right: 8px" @click="goBack">返回上级</Button>
         </div>
       </template>
+
+      <template #avatar="{ row }">
+        <Image :src="row.headUrl" :width="40" :height="40" />
+      </template>
+
+      <template #action="{ row }">
+        <MemberActions
+          :row="row"
+          @view-children="viewChildren"
+          @row-updated="(updated) => {
+            Object.assign(row, updated);
+            if (updated._raw) row._raw = Object.assign(row._raw || {}, updated._raw);
+            if (typeof gridApi.updateRow === 'function') gridApi.updateRow(row);
+            else if (typeof gridApi.refreshRow === 'function') gridApi.refreshRow(row);
+            else row._tmpRerender = (row._tmpRerender || 0) + 1;
+          }"
+        />
+      </template>
     </Grid>
+
+    <!-- 可选：调整充值分成比例弹窗 -->
+    <Modal
+      v-model:open="showRateModal"
+      title="调整充值分成比例"
+      ok-text="确认"
+      cancel-text="取消"
+      :confirm-loading="rateModalLoading"
+      @ok="confirmRate"
+      @cancel="() => (showRateModal = false)"
+    >
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div>请输入新的分成比例（0 - 100）：</div>
+        <Input v-model:value="rateInput" placeholder="比例 例如：10 表示 10%" />
+      </div>
+    </Modal>
   </Page>
 </template>
 
 <style scoped>
-/* 让工具栏元素更贴近原图的“扁平/紧凑”观感 */
-:deep(.ant-select),
-:deep(.ant-input),
-:deep(.ant-picker) {
-  height: 32px;
-}
-
-:deep(.ant-statistic-title) {
-  font-size: 12px;
-  color: #888;
-}
-
-:deep(.ant-statistic-content) {
-  font-size: 20px;
-  font-weight: 600;
-  line-height: 20px;
+.totals-only th {
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
 }
 </style>

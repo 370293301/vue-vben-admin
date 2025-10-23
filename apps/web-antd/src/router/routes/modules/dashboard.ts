@@ -31,6 +31,7 @@ const routes: RouteRecordRaw[] = [
           title: $t('page.dashboard.workspace'),
         },
       },
+
     ],
   },
 ];

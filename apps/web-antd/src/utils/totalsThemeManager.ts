@@ -185,10 +185,20 @@ export function createTotalsThemeManager(opts: {
 
           break;
         }
+        case 'contributions': {                // ✅ 新增：收益贡献
+          // @ts-ignore
+          th.textContent = String(stats.sumContribution ?? 0);
+          break;
+        }
+        case 'revenue': {                      // ✅ 新增：我的收益
+          // @ts-ignore
+          th.textContent = String(stats.sumPayBack ?? 0);
+          break;
+        }
         case 'id':
+        case 'pid':
         case 'uid': {
           th.textContent = '合计';
-
           break;
         }
         default: {
