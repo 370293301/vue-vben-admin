@@ -34,7 +34,7 @@ const formSchema = computed<VbenFormSchema[]>(() => [
       .string()
       .min(1, { message: $t('authentication.usernameTip') })
       .optional()
-      .default('ocY0D7jy06eKOV3Gdvp0A_gasS7Q'),
+      .default('13262603720'),
   },
   {
     component: 'VbenInputPassword',
@@ -45,15 +45,15 @@ const formSchema = computed<VbenFormSchema[]>(() => [
       .string()
       .min(1, { message: $t('authentication.passwordTip') })
       .optional()
-      .default('123456'),
+      .default('z5116257'),
   },
-  {
-    component: markRaw(SliderCaptcha),
-    fieldName: 'captcha',
-    rules: z
-      .boolean()
-      .refine((v) => v, { message: $t('authentication.verifyRequiredTip') }),
-  },
+  // {
+  //   component: markRaw(SliderCaptcha),
+  //   fieldName: 'captcha',
+  //   rules: z
+  //     .boolean()
+  //     .refine((v) => v, { message: $t('authentication.verifyRequiredTip') }),
+  // },
 ]);
 
 const loginLoading = ref(false);
