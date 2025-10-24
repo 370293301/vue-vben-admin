@@ -15,7 +15,7 @@ const routes: RouteRecordRaw[] = [
   {
     meta: {
       badgeType: 'dot',
-      // icon: VBEN_LOGO_URL,
+      icon: VBEN_LOGO_URL,
       order: 9998,
       title: $t('demos.vben.title'),
     },

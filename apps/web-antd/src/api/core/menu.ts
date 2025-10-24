@@ -12,7 +12,7 @@ export async function getAllMenusApi(): Promise<any[]> {
       },
       name: '00000',
       path: '/',
-      redirect: '/0000',
+      // redirect: '/0000',
       children: [
         {
           name: 'home',

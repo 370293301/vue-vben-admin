@@ -66,9 +66,7 @@ const logoStyle = computed((): CSSProperties => {
     :style="style"
     class="border-border bg-header top-0 flex w-full flex-[0_0_auto] items-center border-b pl-2 transition-[margin-top] duration-200"
   >
-    <div v-if="slots.logo" :style="logoStyle">
-      <slot name="logo"></slot>
-    </div>
+
 
     <slot name="toggle-button"> </slot>
 
