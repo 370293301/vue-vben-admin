@@ -63,33 +63,33 @@ const showDot = computed(() =>
 );
 
 const menus = computed(() => [
-  {
-    handler: () => {
-      openWindow(VBEN_DOC_URL, {
-        target: '_blank',
-      });
-    },
-    icon: BookOpenText,
-    text: $t('ui.widgets.document'),
-  },
-  {
-    handler: () => {
-      openWindow(VBEN_GITHUB_URL, {
-        target: '_blank',
-      });
-    },
-    icon: MdiGithub,
-    text: 'GitHub',
-  },
-  {
-    handler: () => {
-      openWindow(`${VBEN_GITHUB_URL}/issues`, {
-        target: '_blank',
-      });
-    },
-    icon: CircleHelp,
-    text: $t('ui.widgets.qa'),
-  },
+  // {
+  //   handler: () => {
+  //     openWindow(VBEN_DOC_URL, {
+  //       target: '_blank',
+  //     });
+  //   },
+  //   icon: BookOpenText,
+  //   text: $t('ui.widgets.document'),
+  // },
+  // {
+  //   handler: () => {
+  //     openWindow(VBEN_GITHUB_URL, {
+  //       target: '_blank',
+  //     });
+  //   },
+  //   icon: MdiGithub,
+  //   text: 'GitHub',
+  // },
+  // {
+  //   handler: () => {
+  //     openWindow(`${VBEN_GITHUB_URL}/issues`, {
+  //       target: '_blank',
+  //     });
+  //   },
+  //   icon: CircleHelp,
+  //   text: $t('ui.widgets.qa'),
+  // },
 ]);
 
 const avatar = computed(() => {
@@ -130,20 +130,20 @@ watch(
       <UserDropdown
         :avatar
         :menus
-        :text="userStore.userInfo?.realName"
-        description="ann.vben@gmail.com"
-        tag-text="Pro"
+        :text="userStore.userInfo?.username"
+        description=""
+        :tag-text=userStore.userInfo?.roles[0]
         @logout="handleLogout"
       />
     </template>
-    <template #notification>
-      <Notification
-        :dot="showDot"
-        :notifications="notifications"
-        @clear="handleNoticeClear"
-        @make-all="handleMakeAll"
-      />
-    </template>
+<!--    <template #notification>-->
+<!--      <Notification-->
+<!--        :dot="showDot"-->
+<!--        :notifications="notifications"-->
+<!--        @clear="handleNoticeClear"-->
+<!--        @make-all="handleMakeAll"-->
+<!--      />-->
+<!--    </template>-->
     <template #extra>
       <AuthenticationLoginExpiredModal
         v-model:open="accessStore.loginExpired"

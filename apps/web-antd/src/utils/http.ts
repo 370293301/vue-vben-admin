@@ -5,7 +5,7 @@ import { useAuthStore } from '#/store';
 
 axios.interceptors.request.use((cfg) => {
   const token = useAuthStore().token;
-  if (token) cfg.headers = { ...cfg.headers, Authorization: `Bearer ${token}` };
+  // if (token) cfg.headers = { ...cfg.headers, Authorization: `Bearer ${token}` };
   return cfg;
 });
 

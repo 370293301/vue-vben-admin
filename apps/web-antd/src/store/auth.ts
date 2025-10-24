@@ -61,28 +61,28 @@ export const useAuthStore = defineStore('auth', {
       console.log('[auth.setToken] called, token=', t);
       if (t) {
         // utils/http 实例（你的 axios）
-        axios.defaults.headers.common.Authorization = `Bearer ${t}`;
-        // api/request 实例（可能用于 Java 请求）
-        try {
-          requestAxios.defaults.headers.common.Authorization = `Bearer ${t}`;
-          console.log('[auth.setToken] set requestAxios header ok');
-        } catch (e) {
-          console.warn('[auth.setToken] set requestAxios header failed', e);
-        }
+        // axios.defaults.headers.common.Authorization = `Bearer ${t}`;
+        // // api/request 实例（可能用于 Java 请求）
+        // try {
+        //   requestAxios.defaults.headers.common.Authorization = `Bearer ${t}`;
+        //   console.log('[auth.setToken] set requestAxios header ok');
+        // } catch (e) {
+        //   console.warn('[auth.setToken] set requestAxios header failed', e);
+        // }
         localStorage.setItem('TOKEN', t);
       } else {
-        delete axios.defaults.headers.common.Authorization;
-        try { delete requestAxios.defaults.headers.common.Authorization; } catch (_) {}
+        // delete axios.defaults.headers.common.Authorization;
+        // try { delete requestAxios.defaults.headers.common.Authorization; } catch (_) {}
         localStorage.removeItem('TOKEN');
       }
 
       // 输出当前两个实例的 header（便于验证）
-      try {
-        console.log('[auth.setToken] utils/http header =', axios.defaults.headers.common.Authorization);
-        console.log('[auth.setToken] api/request header =', requestAxios.defaults.headers.common.Authorization);
-      } catch (e) {
-        console.warn('[auth.setToken] print headers failed', e);
-      }
+      // try {
+      //   console.log('[auth.setToken] utils/http header =', axios.defaults.headers.common.Authorization);
+      //   console.log('[auth.setToken] api/request header =', requestAxios.defaults.headers.common.Authorization);
+      // } catch (e) {
+      //   console.warn('[auth.setToken] print headers failed', e);
+      // }
     },
     /**
      * 恢复本地存储的 token（页面刷新时使用）
@@ -298,7 +298,7 @@ export const useAuthStore = defineStore('auth', {
           ...data,
         };
         // console.log('-------------------3333')
-        // console.log(userInfo)
+        console.log(userInfo)
         this.setUserInfo(userInfo);
         const userStore = useUserStore();
         if (userStore) {
@@ -398,7 +398,7 @@ export const useAuthStore = defineStore('auth', {
         // if (!Array.isArray(jdata.roles)) {
         //   jdata.roles = ['推广员88'];
         // }
-
+        jdata.roles = ['推广员'];
         const userInfo = {
           id: jdata.data.AccountID ?? jdata.data.accountID,
           username: jdata.data.name ?? jdata.data.name ?? form.username,
@@ -624,7 +624,7 @@ export const useAuthStore = defineStore('auth', {
       this.notices = [];
       this.agent = null;
       this.site = {};
-      delete axios.defaults.headers.common.Authorization;
+      // delete axios.defaults.headers.common.Authorization;
 
       localStorage.removeItem('TOKEN');
       localStorage.removeItem('NODE_TOKEN');
@@ -657,7 +657,7 @@ export const useAuthStore = defineStore('auth', {
       this.agent = null;
       this.site = {};
       localStorage.removeItem('TOKEN');
-      delete axios.defaults.headers.common.Authorization;
+      // delete axios.defaults.headers.common.Authorization;
     },
   },
 });

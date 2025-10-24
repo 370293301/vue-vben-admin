@@ -18,12 +18,12 @@ export default defineConfig(async () => {
             // 在转发时把浏览器发来的 Authorization header 一并转发给目标服务器
             configure: (proxy) => {
               proxy.on('proxyReq', (proxyReq, req) => {
-                try {
-                  const auth = (req.headers['authorization'] || req.headers['Authorization']) as string | undefined;
-                  if (auth) proxyReq.setHeader('Authorization', auth);
-                } catch (e) {
-                  // 忽略错误
-                }
+                // try {
+                //   const auth = (req.headers['authorization'] || req.headers['Authorization']) as string | undefined;
+                //   if (auth) proxyReq.setHeader('Authorization', auth);
+                // } catch (e) {
+                //   // 忽略错误
+                // }
               });
             },
           },
