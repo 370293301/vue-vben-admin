@@ -60,11 +60,7 @@ const defaultPreferences: Preferences = {
     mode: 'fixed',
   },
 
-  logo: {
-    enable: true,
-    fit: 'contain',
-    source: '/logo.png',
-  },
+
   navigation: {
     accordion: true,
     split: true,
