@@ -142,7 +142,7 @@ export async function agentReqGameDetailRecord(opts: {
   requestPid?: number | string;
   showNum?: number | string;
   sortType?: number | string;
-  roomId?: string | number;
+  rooID?: string | number;
 }) {
   const pid = Number(
     opts.pid ??
@@ -168,7 +168,7 @@ export async function agentReqGameDetailRecord(opts: {
     sortType,
     requestPid,
   };
-  if (opts.roomId) body.roomId = opts.roomId; /* === MOD: 如果提供则传给后端 */
+  if (opts.rooID) body.rooID = opts.rooID; /* === MOD: 如果提供则传给后端 */
   console.log(
     '[debug] agentReqGameDetailRecord ->',
     AGENT_REQ_GAME_DETAIL_RECORD_URL,

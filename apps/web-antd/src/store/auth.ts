@@ -406,13 +406,9 @@ export const useAuthStore = defineStore('auth', {
           nickname: jdata.data.name ?? '',
           ...jdata,
         };
-        console.log(userInfo)
+
         this.setUserInfo(userInfo);
-        // console.log('-------------------333')
-        // // --------- 新增：提取并保存 pid ---------
-        // console.log('-------------------44444')
-        console.log(jdata)
-        // console.log(jdata.data.pid)
+
         const pid =
           jdata.data.pid ??
           null;
@@ -573,12 +569,7 @@ export const useAuthStore = defineStore('auth', {
         routerInst = arg.router;
       }
 
-      // optional: call backend logout API
-      // try {
-      //   await logoutApi();
-      // } catch (e) {
-      //   console.warn('logoutApi failed', e);
-      // }
+
 
       // 如果没有传 router，则尝试从环境拿
       routerInst = routerInst ?? (typeof window === 'undefined' ? undefined : useRouter());
@@ -630,12 +621,18 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('NODE_TOKEN');
       localStorage.removeItem('ACCOUNT_ID');
       sessionStorage.removeItem('menusRegistered'); // 如果你用过这个标记，也清理掉
-      window.location.replace(LOGIN_PATH);
+      const hashPrefix = import.meta.env.DEV ? '' : '#';
+      // window.location.href = `${window.location.origin}${hashPrefix}${LOGIN_PATH}`;
+
+      window.location.replace(`${window.location.origin}${hashPrefix}${LOGIN_PATH}`);
+      console.log(LOGIN_PATH);
+      window.location.reload();
+      // window.location.replace(LOGIN_PATH);
       // 3) SPA 内部跳转到登陆页（不刷新）
       if (redirect && routerInst) {
-        console.log(77788888999);
+
         try {
-          console.log(11111666222333);
+
           await routerInst.replace({ path: LOGIN_PATH });
         } catch (e) {
           console.warn('[logout] router replace failed, fallback to location replace', e);
@@ -644,7 +641,7 @@ export const useAuthStore = defineStore('auth', {
         }
       } else {
         // 如果没有 router，则直接用 location
-        console.log(222333);
+
         window.location.replace(LOGIN_PATH);
       }
     },

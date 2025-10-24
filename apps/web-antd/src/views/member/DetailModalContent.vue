@@ -48,7 +48,7 @@ async function loadPage(p = 1) {
           localStorage.getItem('ACCOUNT_ID') ??
           0,
       ),
-      roomId: props.filterRoomId ?? undefined, /* === MOD: 如果后端支持，会用于过滤 */
+      rooID: props.filterRoomId ?? undefined, /* === MOD: 如果后端支持，会用于过滤 */
     });
 
     // 你的 agentReqGameDetailRecord 已经返回 normalized { records, totalPages, total }（若实现如前所述）
