@@ -8,7 +8,7 @@ import { LOGIN_PATH } from '@vben/constants';
 import { getAllMenusApi } from '#/api/core/menu';
 import { apiJavaPost } from '#/api/auth'; // 导入 apiJavaPost 方法
 import CryptoJS from 'crypto-js'; // 需要安装: npm install crypto-js
-
+import { message } from 'ant-design-vue';
 // ----- 配置区 -----
 const AGENT_LOGIN_URL = 'http://47.117.179.59:9888/agentLogin';
 const JAVA_SECRET = '33f77501874dbcd087ed565d9b511117'; // Java 签名密钥
@@ -352,7 +352,10 @@ export const useAuthStore = defineStore('auth', {
 
         return { success: true, userInfo };
       } catch (err: any) {
-        console.error('[authLogin] 登录错误:', err.message || err);
+        // console.error('[authLogin] 登录错误:', err.message || err);
+        message.error(err.message || '登录失败，请重试');
+
+
         // 清理
         localStorage.removeItem('AGENT_TOKEN');
         localStorage.removeItem('AGENT_USERNAME');
@@ -376,7 +379,18 @@ export const useAuthStore = defineStore('auth', {
         const password = localStorage.getItem('AGENT_PASSWORD'); // 如果存的是加密密码
 
         if (!username || !password) {
-          throw new Error('未找到存储的账号信息');
+          console.warn('[fetchUserInfo] 存储的凭证不完整，执行登出');
+
+          // 检查是否还有有效的 token
+          const token = localStorage.getItem('AGENT_TOKEN');
+          if (!token) {
+            // 完全没有凭证，清理并跳转
+            await this.logout(false); // false 表示不需要额外的重定向
+            return null;
+          }
+          // 如果还有 token 但没有账号密码，可能是特殊情况，返回空信息
+          return null;
+
         }
 
         console.log('[fetchUserInfo] 使用存储的账号信息请求用户数据');
@@ -404,9 +418,27 @@ export const useAuthStore = defineStore('auth', {
 
         const code = responseData.Code ?? responseData.code ?? responseData.status;
         const msg = responseData.Msg ?? responseData.msg ?? responseData.message;
+        if (code === 101 || code === 'INVALID_PASSWORD' || msg?.includes('账号密码错误')) {
+          console.error('[fetchUserInfo] 检测到密码错误 (Code: 101)，执行登出');
 
+          // 清理凭证
+          localStorage.removeItem('AGENT_TOKEN');
+          localStorage.removeItem('AGENT_USERNAME');
+          localStorage.removeItem('AGENT_PASSWORD');
+          localStorage.removeItem('AGENT_PASSWORD_PLAIN');
+          // 弹出提示
+          message.error('密码已修改，请重新登录');
+          // 执行登出
+          // setTimeout(async () => {
+          //   await this.logout(false);
+          // }, 2000);
+
+          await this.logout(false);
+          return null;
+        }
         if (code !== 200 && code !== 0) {
-          throw new Error(msg || `请求失败 (Code: ${code})`);
+          // throw new Error(msg || `请求失败 (Code: ${code})`);
+          message.error(msg || `请求失败 (Code: ${code})`);
         }
 
         const userInfo = {
@@ -424,6 +456,16 @@ export const useAuthStore = defineStore('auth', {
         if (pid) {
           localStorage.setItem('AGENT_PID', pid);
         }
+        const userStore = useUserStore();
+        if (userStore) {
+          userStore.setUserInfo(userInfo);
+        } else {
+          try {
+            const us = useUserStore();
+            us.setUserInfo(userInfo);
+          } catch (_) {}
+        }
+
         return userInfo;
       } catch (err: any) {
         console.error('[fetchUserInfo] 错误:', err.message || err);
@@ -507,10 +549,20 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('AGENT_PASSWORD_PLAIN');
       sessionStorage.removeItem('menusRegistered');
 
-      const hashPrefix = import.meta.env.DEV ? '' : '#';
-      window.location.replace(`${window.location.origin}${hashPrefix}${LOGIN_PATH}`);
-      console.log('[logout] 登出完成，重定向到:', LOGIN_PATH);
-      window.location.reload();
+      // const hashPrefix = import.meta.env.DEV ? '' : '#';
+
+      // const router = useRouter();
+      // await router.push(LOGIN_PATH);
+
+
+      // const hasHash = window.location.href.includes('#');
+      // const hashPrefix = hasHash ? '#' : '';
+      // console.log(window.location.href)
+      // console.log(window.location.href.includes('#'))
+      // window.location.replace(`${window.location.origin}${LOGIN_PATH}`);
+      // console.log('[logout]有没有带:', hashPrefix);
+      // console.log('[logout] 登出完成，重定向到:', LOGIN_PATH);
+      // window.location.reload();
 
       if (redirect && routerInst) {
         try {
@@ -522,6 +574,10 @@ export const useAuthStore = defineStore('auth', {
       } else {
         window.location.replace(LOGIN_PATH);
       }
+      // ✅ 如果 router 失败，才用 window.location（不要加 # 号）
+      const redirectUrl = `${window.location.origin}/auth/login`;
+      console.log('[logout] 重定向 URL:', redirectUrl);
+      window.location.replace(redirectUrl);
     },
   },
 });

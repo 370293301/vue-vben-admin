@@ -27,7 +27,7 @@ const bannedCache: Record<number, boolean> = reactive({});
 
 // ====== 搜索 / 排序 / 目标PID ======
 const searchState = reactive({
-  field: 'uid' as 'nickname' | 'uid',
+  field: 'uid' as 'uid' | 'nickname' | 'mark',
   keyword: '',
 });
 
@@ -45,7 +45,7 @@ const sortOptions = [
 
 // === MOD: 日期（必传 timeSpace，未选则默认“今天0点”） ===
 const filterDate = ref<Date | null>(null);
-
+const timeRange = ref<[number, number] | null>(null);
 // 当前查询的目标 pid（用于“查看下级”功能）
 const currentTargetPid = ref<number>(
   Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
@@ -95,8 +95,13 @@ const gridOptions: VxeGridProps<any> = {
       query: async ({ page }) => {
         // === MOD: ALWAYS 传 timeSpace & name（后端必填）
         const requestPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
-        const timeSpaceMs = dayjs(filterDate.value ?? new Date()).startOf('day').valueOf(); // Long 毫秒
-
+        // const timeSpaceMs = dayjs(filterDate.value ?? new Date()).startOf('day').valueOf(); // Long 毫秒
+        let startTime = 0;
+        let endTime = 0;
+        if (timeRange.value && timeRange.value.length === 2) {
+          startTime = Math.floor(timeRange.value[0] / 1000); // 转换为秒
+          endTime = Math.floor(timeRange.value[1] / 1000);
+        }
         // === MOD: 请求收益接口
         const resp = await agentReqPayBack({
           page: page.currentPage,
@@ -105,7 +110,9 @@ const gridOptions: VxeGridProps<any> = {
           keyword: searchState.keyword,
           sortType: sortState.sortType,
           targetPid: currentTargetPid.value,
-          date: filterDate.value ?? new Date(), // 兜底今天
+          startTime,
+          endTime,
+          // date: filterDate.value ?? new Date(), // 兜底今天
         });
 
         const maybe = resp?.data ?? resp ?? {};
@@ -140,6 +147,7 @@ const gridOptions: VxeGridProps<any> = {
             contributions: Number(it.contributions ?? it.contribution ?? 0),
             revenueType: it.revenueType ?? it.revenue_type ?? '',
             revenue: Number(it.revenue ?? it.myRevenue ?? it.revenueValue ?? 0),
+            markStr: it.markStr ?? '',
             _raw: { ...it, pid },
           };
         });
@@ -234,6 +242,7 @@ function confirmRate() {
         <Select v-model:value="searchState.field" style="width: 120px; margin-right: 8px">
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
+          <Select.Option value="mark">备注标记</Select.Option>
         </Select>
         <Input v-model:value="searchState.keyword" placeholder="搜索内容" allow-clear style="width: 220px; margin-right: 8px" />
 
@@ -245,7 +254,13 @@ function confirmRate() {
         </Select>
 
         <!-- === MOD: 日期选择（若未选，接口自动发今天0点） === -->
-        <DatePicker v-model:value="filterDate" style="width: 160px; margin-right: 8px" placeholder="选择日期（当天0点）" />
+        <!-- ✅ 时间范围选择 -->
+        <RangePicker
+          v-model:value="timeRange"
+          style="width: 280px; margin-right: 8px"
+          placeholder="选择时间范围"
+          show-time
+        />
 
         <Button type="primary" @click="() => gridApi.query()">查询</Button>
 

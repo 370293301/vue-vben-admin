@@ -146,8 +146,8 @@ function onHeaderSort(col: 'points' | 'setCount') {
 
 // 顶部筛选状态
 const searchState = reactive({
-  dateRange: [] as any[],
-  field: 'uid' as 'nickname' | 'uid',
+  timeRange: null as any, // ✅ 时间范围
+  field: 'uid' as 'uid' | 'nickname' | 'mark',
   keyword: '',
   sortType: 0, // 0 默认、1 钻石 ↓、2 钻石 ↑、3 金豆 ↓、4 金豆 ↑ （复用你定义的含义）
   pageSize: 10,
@@ -200,7 +200,7 @@ const columns: VxeGridProps<RowItem>['columns'] = [
     align: 'center',
     slots: { header: 'header-points', default: 'score' },
   },
-  { field: 'remark', title: '备注' },
+  { field: 'markStr', title: '备注标记' },
 
   {
     field: 'action',
@@ -268,15 +268,22 @@ const gridOptions: VxeGridProps<RowItem> = {
         const finalSortType =
           mappedSortType === 0 ? (searchState.sortType ?? 0) : mappedSortType;
 
-        const [startDate, endDate] = searchState.dateRange ?? [];
+        // const [startDate, endDate] = searchState.dateRange ?? [];
+        // ✅ 获取时间戳
+        let startTime = 0;
+        let endTime = 0;
+        if (searchState.timeRange && searchState.timeRange.length === 2) {
+          startTime = Math.floor(searchState.timeRange[0] / 1000); // 转换为秒
+          endTime = Math.floor(searchState.timeRange[1] / 1000);
+        }
         const params = {
           pagNum: page.currentPage,
           showNum: page.pageSize,
           field: searchState.field,
           keyword: searchState.keyword,
           sortType: finalSortType, // <- 这里使用 finalSortType（修复点）
-          startDate,
-          endDate,
+          startTime, // ✅ 秒级时间戳
+          endTime, // ✅ 秒级时间戳
           pid:
             currentTargetPid?.value ??
             Number(localStorage.getItem('AGENT_PID') ?? 0),
@@ -367,7 +374,7 @@ const gridOptions: VxeGridProps<RowItem> = {
               it.bigWinnerCount ?? it.big_winner_count ?? it.bigWinner ?? 0,
             ),
             points: Number(it.points ?? it.score ?? 0),
-            remark: it.remark ?? it.setRemark ?? '',
+            markStr: it.markStr ?? '',
             // 把后端原始数据和标准化字段放进 _raw，保证 MemberActions 能读取 pid/isBanned 等
             _raw: { ...it, pid, isBanned },
             isBanned,
@@ -434,10 +441,9 @@ function viewChildrenFromActions(row: RowItem) {
     <Grid table-title="玩家战绩">
       <template #toolbar-tools>
         <RangePicker
-          v-model:value="searchState.dateRange"
+          v-model:value="timeRange"
           style="width: 240px; margin-right: 12px"
-          :placeholder="['开始日期', '结束日期']"
-          allow-clear
+          show-time
         />
         <Select
           v-model:value="searchState.field"
@@ -457,11 +463,10 @@ function viewChildrenFromActions(row: RowItem) {
           @change="onSortChange"
           style="width: 140px; margin-right: 8px"
         >
-          <Select.Option :value="0">默认排序</Select.Option>
-          <Select.Option :value="1">钻石 ↓</Select.Option>
-          <Select.Option :value="2">钻石 ↑</Select.Option>
-          <Select.Option :value="3">金豆 ↓</Select.Option>
-          <Select.Option :value="4">金豆 ↑</Select.Option>
+          <Select.Option :value="1">局数 ↓</Select.Option>
+          <Select.Option :value="2">局数 ↑</Select.Option>
+          <Select.Option :value="3">得分 ↓</Select.Option>
+          <Select.Option :value="4">得分 ↑</Select.Option>
         </Select>
 
         <Select

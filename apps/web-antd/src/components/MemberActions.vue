@@ -19,6 +19,7 @@ type RowLike = {
   pid?: number;
   rate?: number;
   remark?: string;
+  level?: number; // ✅ 新增：身份等级
 };
 
 const props = defineProps<{
@@ -57,6 +58,11 @@ function getRequestPid() {
       0,
   );
 }
+// ✅ 检查是否已是推广员（level = 1 表示推广员）
+function isPromoter() {
+  const level = Number(props.row._raw?.level ?? props.row.level ?? 0);
+  return level === 1;
+}
 
 /* ---------- 操作实现 ---------- */
 
@@ -75,15 +81,17 @@ async function onSetPromoter() {
       return;
     }
     const requestPid = getRequestPid();
-    const resp = await apiSetPromoter({ pid, type: 0, requestPid });
+    const resp = await apiSetPromoter({ pid, type: 1, requestPid });
     const data = resp?.data ?? resp;
     const ok = data?.setResult === true || data?.code === 0 || data === true;
     if (ok) {
       message.success('设置为推广员成功');
       // 发送局部更新给父组件（父组件负责合并与刷新）
       emit('row-updated', {
+        level: 1,
         _raw: {
           ...props.row._raw,
+          level: 1,
           isPromoter: true,
           role_name: '推广员',
         },
@@ -298,6 +306,7 @@ async function confirmRate() {
       查看下级
     </Button>
     <Button
+      v-if="!isPromoter()"
       size="small"
       type="primary"
       ghost

@@ -1,0 +1,75 @@
+{
+
+  "1082": {
+    "Id": 1082,
+    "Name": "newshqmmj",
+    "Type": 1,
+    "Name_1": "敲麻",
+    "imgUrl": "btn_newshqmmj",
+    "imgUrl_1": ""
+  },
+  "1084": {
+    "Id": 1084,
+    "Name": "ddzxcx",
+    "Type": 2,
+    "Name_1": "斗地主",
+    "imgUrl": "btn_ddzxcx",
+    "imgUrl_1": ""
+  },
+  "1085": {
+    "Id": 1085,
+    "Name": "pdkxcx",
+    "Type": 2,
+    "Name_1": "跑得快",
+    "imgUrl": "btn_pdkxcx",
+    "imgUrl_1": ""
+  },
+  "1086": {
+    "Id": 1086,
+    "Name": "xscsssxcx",
+    "Type": 2,
+    "Name_1": "大菠萝",
+    "imgUrl": "btn_xscsssxcx",
+    "imgUrl_1": ""
+  },
+  "1091": {
+    "Id": 1091,
+    "Name": "hzmjxcx",
+    "Type": 1,
+    "Name_1": "红中麻将",
+    "imgUrl": "btn_hzmjxcx",
+    "imgUrl_1": ""
+  },
+  "1092": {
+    "Id": 1092,
+    "Name": "gxlpmjxcx",
+    "Type": 1,
+    "Name_1": "荔浦麻将",
+    "imgUrl": "btn_gxlpmjxcx",
+    "imgUrl_1": ""
+  },
+  "1098": {
+    "Id": 1098,
+    "Name": "ljcxcx",
+    "Type": 1,    
+    "Name_1": "老韭菜",
+    "imgUrl": "btn_ljcxcx",
+    "imgUrl_1": ""
+  },  
+  "1099": {
+    "Id": 1099,
+    "Name": "lwdxcx",
+    "Type": 1,
+    "Name_1": "老五对",
+    "imgUrl": "btn_lwdxcx",
+    "imgUrl_1": ""
+  },
+  "1100": {
+    "Id": 1100,
+    "Name": "gdxcx",
+    "Type": 2,
+    "Name_1": "惯蛋",
+    "imgUrl": "btn_gdxcx",
+    "imgUrl_1": ""
+  }
+}

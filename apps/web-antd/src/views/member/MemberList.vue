@@ -23,7 +23,7 @@ const bannedCache: Record<number, boolean> = reactive({});
 
 // 搜索状态
 const searchState = reactive({
-  field: 'uid' as 'nickname' | 'uid',
+  field: 'uid' as 'uid' | 'nickname' | 'mark',
   keyword: '',
 });
 // 排序状态：0 默认、1 钻石降序、2 钻石升序、3 金豆降序、4 金豆升序
@@ -68,7 +68,7 @@ const columns: VxeGridProps<any>['columns'] = [
   { field: 'nobleLevel', title: '贵族等级' },
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
-  { field: 'remark', title: '备注' },
+  { field: 'markStr', title: '备注' },
   {
     field: 'action',
     title: '操作',
@@ -159,6 +159,7 @@ const gridOptions: VxeGridProps<any> = {
             crystal: it.diamond ?? 0,
             gold: it.gold ?? it.bean ?? 0,
             remark: it.remark ?? it.setRemark ?? '',
+            markStr: it.markStr ?? '',
             _raw: { ...it, pid, isBanned }, // 把 isBanned 放到 _raw
             isBanned, // 也把字段放到行顶层，方便模板判断
           };
@@ -309,6 +310,7 @@ function goBack() {
         >
           <Select.Option value="uid">玩家ID</Select.Option>
           <Select.Option value="nickname">玩家名称</Select.Option>
+          <Select.Option value="mark">备注标记</Select.Option>
         </Select>
         <Input
           v-model:value="searchState.keyword"

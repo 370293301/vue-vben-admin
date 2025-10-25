@@ -25,6 +25,7 @@ export interface AgentPlayerListItem {
   nobleLevel?: number;
   diamond?: number;
   gold?: number;
+  markStr?: string; // ✅ 新增：备注字
 }
 
 export interface AgentPlayerListResp {
@@ -76,6 +77,7 @@ export async function apiGetMemberList(params: {
     showNum: params.pageSize,
     sortType: sortType ?? 0,
     requestPid: requestPid, // 谁在请求
+    mark: '',
     ...(params.extra || {}),
   };
 
@@ -86,10 +88,18 @@ export async function apiGetMemberList(params: {
       const maybeNum = Number(keyword);
       body.pid = Number.isFinite(maybeNum) ? maybeNum : 0;
       body.name = '';
+      body.mark = '';
+    } else if (field === 'mark') {
+      // ✅ 按备注搜索：pid=0, name="", mark=keyword
+      body.pid = 0;
+      body.name = '';
+      body.mark = keyword;
+      console.log('[debug] 按备注搜索:', body);
     } else {
       // name 搜索：pid 必须传 0，name=keyword
       body.pid = 0;
       body.name = keyword;
+      body.mark = '';
     }
   } else {
     // 非搜索（列表）场景
@@ -101,6 +111,7 @@ export async function apiGetMemberList(params: {
       body.pid = requestPid;
     }
     body.name = '';
+    body.mark = '';
   }
   // 确保 body.sortType 最终是 number 且落在 0-4 之间（防错）
   body.sortType = Number.isFinite(Number(body.sortType)) ? Number(body.sortType) : 0;

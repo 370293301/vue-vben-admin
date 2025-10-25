@@ -6,9 +6,11 @@ import { Page } from '@vben/common-ui';
 import { Button, Input, message } from 'ant-design-vue';
 
 import { agentChangePassWord } from '#/api/account';
-
+import CryptoJS from 'crypto-js';
 const newPassword = ref('');
-
+function md5Encrypt(str: string): string {
+  return CryptoJS.MD5(str).toString();
+}
 async function onSubmit() {
   if (!newPassword.value || !String(newPassword.value).trim()) {
     return message.warning('请输入新密码');
@@ -24,16 +26,26 @@ async function onSubmit() {
     // 后端返回示例 { result: '成功'/'失败' 或 true/false, message: '...' }
     const result = resp?.result;
     const msg = resp?.message ?? '';
-
+    console.log(' resp', resp.code);
     // 根据后端 result 字段进行判断（兼容字符串或 boolean）
     const ok =
       result === true ||
       String(result).toLowerCase() === 'true' ||
       String(result).includes('成功') ||
-      String(result).toLowerCase() === 'success';
+      String(result).toLowerCase() === 'success' ||
+      resp.code === 0;
 
     if (ok) {
       message.success(msg || '密码修改成功');
+      // ✅ 密码修改成功后，更新 localStorage
+      const plainPassword = newPassword.value.trim();
+      const encryptedPassword = md5Encrypt(plainPassword);
+
+      // 存储加密密码（用于下次登录）
+      localStorage.setItem('AGENT_PASSWORD', encryptedPassword);
+
+      // 存储明文密码（可选，根据你的需求）
+      localStorage.setItem('AGENT_PASSWORD_PLAIN', plainPassword);
       // 需要的话可以清空输入并跳转/关闭
       newPassword.value = '';
     } else {

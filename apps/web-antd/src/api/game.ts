@@ -32,6 +32,7 @@ export interface AgentGameRecordItem {
   name?: string;
   headUrl?: string;
   level?: number;
+  markStr?: string; // ✅ 新增：备注标记
   setCount?: number;
   bigWinnerCount?: number;
   points?: number;
@@ -196,15 +197,17 @@ export async function agentReqGameDetailRecord(opts: {
  */
 export async function agentReqGameRecord(opts: {
   [k: string]: any;
-  endDate?: string;
+
   field?: string;
   keyword?: string;
+  startTime?: number; // ✅ 秒级时间戳
+  endTime?: number;   // ✅ 秒级时间戳
   pagNum?: number | string;
   pid?: number | string;
   requestPid?: number | string;
   showNum?: number | string;
   sortType?: number | string;
-  startDate?: string;
+
 }) {
   const pid = Number(
     opts.pid ??
@@ -229,6 +232,9 @@ export async function agentReqGameRecord(opts: {
     pagNum,
     showNum,
     sortType,
+    mark: '', // ✅ 新增：备注字段，默认空
+    startTime: opts.startTime ?? 0, // ✅ 秒级时间戳
+    endTime: opts.endTime ?? 0,     // ✅ 秒级时间戳
     requestPid,
   };
 
@@ -240,14 +246,23 @@ export async function agentReqGameRecord(opts: {
       const maybeNum = Number(kw);
       body.pid = Number.isFinite(maybeNum) ? maybeNum : 0;
       body.name = '';
+      body.mark = '';
+    }else if ((opts.field ?? '') === 'mark') {
+      // ✅ 按备注搜索
+      body.pid = 0;
+      body.name = '';
+      body.mark = kw;
+      console.log('[debug] 按备注搜索 GameRecord:', body);
     } else {
       body.pid = 0;
       body.name = kw;
+      body.mark = '';
     }
   } else {
     body.searchType = 0;
     body.pid = pid; // 使用上面计算的 pid（可能是 requestPid 或 caller 指定）
     body.name = '';
+    body.mark = '';
   }
 
   if (opts.startDate) body.startDate = opts.startDate;
@@ -364,6 +379,8 @@ export async function agentReqPayBack(params: {
   field?: 'uid' | 'nickname';
   keyword?: string;
   targetPid?: number | string;       // 列表上下文 pid
+  startTime?: number; // ✅ 秒级时间戳
+  endTime?: number;   // ✅ 秒级时间戳
   date?: Date | string | number | null;
 }) {
   const requestPid = Number(
@@ -385,9 +402,17 @@ export async function agentReqPayBack(params: {
       ? Number(params.targetPid)
       : requestPid;
 
+  // ✅ 处理时间戳
+  let startTime = params.startTime ?? 0;
+  let endTime = params.endTime ?? 0;
   // 必发：当天 0 点（毫秒 Long）
   const timeSpace = dayjs(params.date ?? new Date()).startOf('day').valueOf();
-
+// 如果传入 date 对象，则转换为秒级时间戳
+  if (params.date && !params.startTime && !params.endTime) {
+    const dateObj = new Date(params.date);
+    startTime = Math.floor(dateObj.setHours(0, 0, 0, 0) / 1000);
+    endTime = Math.floor(dateObj.setHours(23, 59, 59, 999) / 1000);
+  }
   const body: Record<string, any> = {
     pagNum,
     showNum,
@@ -396,7 +421,9 @@ export async function agentReqPayBack(params: {
     pid: targetPid,    // 默认列表上下文 pid
     searchType: 0,
     name: '',          // 后端要求必传字符串
-    timeSpace,         // Long 毫秒
+    startTime: startTime, // ✅ 秒级时间戳
+    endTime: endTime,     // ✅ 秒级时间戳
+    timeSpace,        // 某天 0 点时间戳（毫秒）
   };
 
   if (isSearching) {
@@ -405,10 +432,27 @@ export async function agentReqPayBack(params: {
       const maybe = Number(keyword);
       body.pid = Number.isFinite(maybe) ? maybe : 0;
       body.name = ''; // ID 搜索时 name 仍必须是空字符串
+      body.mark = '';
+    }else if (field === 'mark') {
+      // ✅ 按备注搜索
+      body.pid = 0;
+      body.name = '';
+      body.mark = keyword;
+      // console.log('[debug] 按备注搜索 PayBack:', body);
     } else {
       body.pid = 0;            // 姓名搜索按你描述传 0
       body.name = keyword;     // name 赋为关键词
+      body.mark = '';
     }
+  }else {
+    body.searchType = 0;
+    if (targetPid !== null && typeof targetPid !== 'undefined') {
+      body.pid = Number(targetPid) || 0;
+    } else {
+      body.pid = requestPid;
+    }
+    body.name = '';
+    body.mark = '';;
   }
 
   console.log('[debug] agentReqPayBack body =', body);
