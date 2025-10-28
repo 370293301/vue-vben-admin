@@ -26,6 +26,8 @@ export interface AgentPlayerListItem {
   diamond?: number;
   gold?: number;
   markStr?: string; // ✅ 新增：备注字
+  //分成 fenCheng
+  fenCheng?: number;
 }
 
 export interface AgentPlayerListResp {

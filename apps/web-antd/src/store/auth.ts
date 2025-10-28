@@ -10,7 +10,7 @@ import { apiJavaPost } from '#/api/auth'; // 导入 apiJavaPost 方法
 import CryptoJS from 'crypto-js'; // 需要安装: npm install crypto-js
 import { message } from 'ant-design-vue';
 // ----- 配置区 -----
-const AGENT_LOGIN_URL = 'http://47.117.179.59:9888/agentLogin';
+const AGENT_LOGIN_URL = 'http://47.117.179.59:9885/agentLogin';
 const JAVA_SECRET = '33f77501874dbcd087ed565d9b511117'; // Java 签名密钥
 const JAVA_SECRET_KEY_NAME: string | undefined = undefined; // 签名密钥名称
 

@@ -1,43 +1,44 @@
-<!-- DetailModalContent.vue -->
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
-
+import { computed, onMounted, ref, watch } from 'vue';
 import { message } from 'ant-design-vue';
+import dayjs from 'dayjs';
 
 import { agentReqGameDetailRecord } from '#/api/game';
+import type { GameDetailRecordItem, PlayerPointInfo } from '#/api/game';
 
 const props = defineProps<{
-  initialPage?: number; // 初始页，默认 1
-  onClose: () => void; // 关闭回调（父组件传入）
-  pageSize?: number; // 每页数量，默认 10
-  pid: number; // 要查看战绩的 PID（必须）
-  filterRoomId?: string | number | null; /* === MOD: 可选 roomId（客户端过滤或传给后端） */
+  initialPage?: number;      // 初始页，默认 1
+  onClose: () => void;       // 关闭回调
+  pageSize?: number;         // 每页数量，默认 10
+  pid: number;               // 要查看战绩的 PID（必须）
+  filterRoomId?: string | number | null;  // 可选 roomID
 }>();
 
 // 内部状态
 const page = ref<number>(props.initialPage ?? 1);
 const pageSize = 10;
 const loading = ref(false);
-const records = ref<any[]>([]);
+const records = ref<GameDetailRecordItem[]>([]);
 const totalPages = ref<number>(1);
+const total = ref<number>(0);
 
-// helper: 从一条 record 中根据 pid 找到该玩家的分数（points / score / points）
-function getScoreForPid(rec: any, pid: number) {
-  const players = rec.players ?? rec.listInfo ?? rec.playerList ?? [];
-  if (!Array.isArray(players)) return 0;
-  const p = players.find(
-    (x: any) => Number(x.pid ?? x.id ?? 0) === Number(pid),
-  );
-  if (p) return Number(p.points ?? p.score ?? 0);
-  // 如果没找到 pid 对应玩家，尝试返回第一个玩家的分数（降级展示）
-  const first = players[0];
-  return first ? Number(first.points ?? first.score ?? 0) : 0;
+// 格式化时间戳（秒 -> 日期时间）
+function formatTime(timestamp: number): string {
+  if (!timestamp) return '—';
+  return dayjs.unix(timestamp).format('YYYY-MM-DD HH:mm:ss');
+}
+
+// 获取指定 pid 玩家的分数
+function getPlayerScore(item: GameDetailRecordItem, pid: number): number {
+  const player = item.listInfo?.find((p) => p.pid === pid);
+  return player?.point ?? 0;
 }
 
 // 加载某一页
 async function loadPage(p = 1) {
   if (!props.pid) return;
   loading.value = true;
+  console.log('[DetailModalContent] loadPage11111:', props, 'page:', p);
   try {
     const resp = await agentReqGameDetailRecord({
       pid: props.pid,
@@ -45,53 +46,84 @@ async function loadPage(p = 1) {
       showNum: pageSize,
       requestPid: Number(
         localStorage.getItem('AGENT_PID') ??
-          localStorage.getItem('ACCOUNT_ID') ??
-          0,
+        localStorage.getItem('ACCOUNT_ID') ??
+        0,
       ),
-      rooID: props.filterRoomId ?? undefined, /* === MOD: 如果后端支持，会用于过滤 */
+      rooID: props.filterRoomId ?? undefined,
     });
 
-    // 你的 agentReqGameDetailRecord 已经返回 normalized { records, totalPages, total }（若实现如前所述）
-    if (resp && Array.isArray((resp as any).records)) {
-      records.value = (resp as any).records;
-      totalPages.value = Number((resp as any).totalPages ?? 1);
-    } else {
-      // 兼容旧返回形式
-      const maybe = resp?.data ?? resp ?? {};
-      const rawList = maybe.listInfo ?? maybe.list ?? [];
-      records.value = Array.isArray(rawList) ? rawList : [];
-      totalPages.value = Number(maybe.totalPages ?? maybe.total ?? 1);
+    console.log('[DetailModalContent] loadPage resp:', resp);
+
+    // 处理双层 data 结构
+    const actualData = resp?.data;
+    const responseCode = actualData?.code ?? resp?.code ?? 0;
+
+    if (responseCode !== 0 && responseCode !== undefined) {
+      const errorMsg = actualData?.msg ?? resp?.msg ?? '获取数据失败';
+      message.error(errorMsg);
+      records.value = [];
+      return;
     }
+
+    // 获取实际数据列表
+    const dataList = actualData?.data ?? resp?.data;
+
+    if (Array.isArray(dataList)) {
+      records.value = dataList;
+      total.value = dataList.length;
+      // 简单计算总页数（如果后端没有返回 totalPages）
+      totalPages.value = Math.ceil(dataList.length / pageSize) || 1;
+    } else {
+      records.value = [];
+      total.value = 0;
+      totalPages.value = 1;
+    }
+
     page.value = p;
+
+    console.log('[DetailModalContent] records:', records.value.length);
   } catch (error) {
     console.error('[DetailModalContent] loadPage error', error);
     message.error('获取战绩明细失败');
+    records.value = [];
   } finally {
     loading.value = false;
   }
 }
 
+// 当前页显示的记录（客户端分页）
+const displayRecords = computed(() => {
+  const start = (page.value - 1) * pageSize;
+  const end = start + pageSize;
+  return records.value.slice(start, end);
+});
+
 // 生命周期：初始加载 & pid 变化自动刷新
 onMounted(() => loadPage(page.value));
+
 watch(
   () => props.pid,
-  (newPid, oldPid) => {
+  (newPid) => {
     if (!newPid) return;
     page.value = 1;
     loadPage(1);
   },
 );
 
-// 简单翻页函数
+// 翻页函数
 function prev() {
-  if (page.value > 1) loadPage(page.value - 1);
+  if (page.value > 1) {
+    page.value--;
+  }
 }
+
 function next() {
-  if (page.value < (totalPages.value || 1)) loadPage(page.value + 1);
+  if (page.value < totalPages.value) {
+    page.value++;
+  }
 }
 
 function close() {
-  // 触发父组件回调，父组件负责卸载或隐藏
   props.onClose && props.onClose();
 }
 </script>
@@ -101,7 +133,7 @@ function close() {
     <!-- 背景遮罩 -->
     <div class="dbg-modal-mask" @click="close"></div>
 
-    <!-- 面板（宽度更小 600px） -->
+    <!-- 面板 -->
     <div class="dbg-modal-panel">
       <div class="dbg-modal-header">
         <div style="font-weight: 700">战绩明细 - PID: {{ props.pid }}</div>
@@ -112,66 +144,86 @@ function close() {
         <div v-if="loading" class="dbg-loading">加载中…</div>
 
         <div v-else>
-          <div v-if="!records || records.length === 0" class="dbg-empty">
+          <div v-if="!displayRecords || displayRecords.length === 0" class="dbg-empty">
             暂无数据
           </div>
 
           <div v-else>
-            <table
-              style="width: 100%; margin-top: 8px; border-collapse: collapse"
-            >
+            <table class="detail-table">
               <thead>
-                <tr
-                  style="
-                    font-weight: 600;
-                    color: var(--vben-text-3);
-                    text-align: left;
-                  "
-                >
-                  <th style="width: 200px; padding: 6px 8px">时间</th>
-                  <th style="width: 200px; padding: 6px 8px">得分</th>
-                  <th style="width: 200px; padding: 6px 8px">回放码</th>
-                </tr>
+              <tr>
+                <th style="width: 80px">房间号</th>
+                <th style="width: 80px">局数</th>
+                <th style="width: 180px">结束时间</th>
+                <th style="width: 100px">得分</th>
+                <th style="width: 120px">回放码</th>
+                <th>玩家信息</th>
+              </tr>
               </thead>
               <tbody>
-                <tr v-for="rec in records" :key="rec.recordCode + rec.time">
-                  <td style="padding: 6px 8px">{{ rec.time || '—' }}</td>
-                  <td style="padding: 6px 8px">
-                    <!-- 优先显示 props.pid 的得分 -->
-                    {{
-                      (rec.players &&
-                        rec.players.find(
-                          (p) => Number(p.pid) === Number(props.pid),
-                        )?.points) ??
-                      /* fallback：把所有玩家得分加起来 */ (Array.isArray(
-                        rec.players,
-                      )
-                        ? rec.players.reduce(
-                            (s, p) => s + Number(p.points || 0),
-                            0,
-                          )
-                        : 0)
-                    }}
-                  </td>
-                  <td style="padding: 6px 8px">
-                    <a
-                      v-if="rec.recordCode"
-                      :href="`/replay/${rec.recordCode}`"
-                      target="_blank"
-                      >{{ rec.recordCode }}</a>
-                    <span v-else>—</span>
-                  </td>
-                </tr>
+              <tr v-for="(rec, index) in displayRecords" :key="index">
+                <td>{{ rec.roomID || '—' }}</td>
+                <td>{{ rec.setID || '—' }}</td>
+                <td>{{ formatTime(rec.endTime) }}</td>
+                <td>
+                    <span
+                      :style="{
+                        color: getPlayerScore(rec, props.pid) > 0 ? '#52c41a' :
+                               getPlayerScore(rec, props.pid) < 0 ? '#ff4d4f' :
+                               'inherit'
+                      }"
+                    >
+                      {{ getPlayerScore(rec, props.pid) }}
+                    </span>
+                </td>
+                <td>
+                  <a
+                    v-if="rec.playbackCode"
+                    :href="`/replay/${rec.playbackCode}`"
+                    target="_blank"
+                    style="color: #1890ff"
+                  >
+                    {{ rec.playbackCode }}
+                  </a>
+                  <span v-else>—</span>
+                </td>
+                <td>
+                  <div class="players-list">
+                    <div
+                      v-for="player in rec.listInfo"
+                      :key="player.pid"
+                      class="player-item"
+                      :class="{ 'is-current': player.pid === props.pid }"
+                    >
+                      <img
+                        v-if="player.headUrl"
+                        :src="player.headUrl"
+                        :alt="player.name"
+                        class="player-avatar"
+                      />
+                      <span class="player-name">{{ player.name }}</span>
+                      <span
+                        class="player-score"
+                        :style="{
+                            color: player.point > 0 ? '#52c41a' :
+                                   player.point < 0 ? '#ff4d4f' :
+                                   'inherit'
+                          }"
+                      >
+                          {{ player.point > 0 ? '+' : '' }}{{ player.point }}
+                        </span>
+                    </div>
+                  </div>
+                </td>
+              </tr>
               </tbody>
             </table>
 
-            <!-- 分页控件（简单） -->
+            <!-- 分页控件 -->
             <div class="dbg-pager">
-              <button v-if="page > 1" @click="prev">上一页</button>
-              <div>第 {{ page }} / {{ totalPages || 1 }} 页</div>
-              <button v-if="page < (totalPages || 1)" @click="next">
-                下一页
-              </button>
+              <button :disabled="page <= 1" @click="prev">上一页</button>
+              <div>第 {{ page }} / {{ totalPages }} 页（共 {{ total }} 条）</div>
+              <button :disabled="page >= totalPages" @click="next">下一页</button>
             </div>
           </div>
         </div>
@@ -181,8 +233,8 @@ function close() {
 </template>
 
 <style scoped>
-/* 小屏时缩小宽度 */
-@media (max-width: 700px) {
+/* 响应式 */
+@media (max-width: 900px) {
   .dbg-modal-panel {
     top: 8%;
     left: 50%;
@@ -204,89 +256,145 @@ function close() {
   background: rgb(0 0 0 / 45%);
 }
 
-/* 面板改为 600px 宽度，更小更不容易遮挡内容 */
 .dbg-modal-panel {
   position: absolute;
-  top: 12%;
+  top: 8%;
   left: 50%;
   display: flex;
   flex-direction: column;
-  width: 600px;
+  width: 900px;
   max-width: calc(100% - 32px);
-  max-height: 72vh;
-  padding: 10px;
+  max-height: 80vh;
+  padding: 16px;
   overflow: hidden;
-  color: var(--vben-text, #fff);
-  background: var(--vben-bg, #0f1720);
+  color: var(--vben-text, #333);
+  background: var(--vben-bg, #fff);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 60%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
   transform: translateX(-50%);
 }
 
-/* header */
 .dbg-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-/* body 滚动区域 */
 .dbg-modal-body {
   flex: 1 1 auto;
-  padding-right: 8px;
-  margin-top: 6px;
+  padding: 12px 0;
   overflow: auto;
 }
 
-/* loading / empty */
 .dbg-loading,
 .dbg-empty {
-  padding: 20px;
-  color: var(--vben-text-3, #9aa0a6);
+  padding: 40px;
+  color: #999;
   text-align: center;
 }
 
-/* 简单表格 */
-.dbg-table {
+/* 表格样式 */
+.detail-table {
   width: 100%;
   font-size: 13px;
   border-collapse: collapse;
 }
 
-.dbg-table thead th {
-  padding: 8px 6px;
-  color: var(--vben-text-3, #9aa0a6);
+.detail-table thead th {
+  padding: 10px 8px;
+  font-weight: 600;
+  color: #666;
   text-align: left;
-  border-bottom: 1px solid rgb(255 255 255 / 3%);
+  background: #fafafa;
+  border-bottom: 2px solid #f0f0f0;
 }
 
-.dbg-table tbody td {
-  padding: 10px 6px;
-  vertical-align: middle;
-  border-bottom: 1px dashed rgb(255 255 255 / 3%);
+.detail-table tbody td {
+  padding: 12px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-/* pager */
+.detail-table tbody tr:hover {
+  background: #fafafa;
+}
+
+/* 玩家列表 */
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.player-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.player-item.is-current {
+  background: #e6f7ff;
+}
+
+.player-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+.player-name {
+  flex: 1;
+  font-size: 13px;
+}
+
+.player-score {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* 分页 */
 .dbg-pager {
   display: flex;
   gap: 12px;
   align-items: center;
   justify-content: center;
-  padding: 12px 0;
+  padding: 16px 0 0;
 }
 
-/* 关闭按钮样式 */
-.dbg-close-btn {
-  padding: 4px 8px;
+.dbg-pager button {
+  padding: 6px 12px;
   color: inherit;
   cursor: pointer;
   background: transparent;
-  border: 1px solid rgb(255 255 255 / 6%);
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.dbg-pager button:hover:not(:disabled) {
+  color: #1890ff;
+  border-color: #1890ff;
+}
+
+.dbg-pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dbg-close-btn {
+  padding: 6px 12px;
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid #d9d9d9;
   border-radius: 4px;
 }
 
 .dbg-close-btn:hover {
-  opacity: 0.9;
+  color: #1890ff;
+  border-color: #1890ff;
 }
 </style>

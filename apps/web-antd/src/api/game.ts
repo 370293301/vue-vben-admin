@@ -25,6 +25,15 @@ export const AGENT_REQ_GAME_DETAIL_RECORD_URL = import.meta.env.PROD
 export const AGENT_REQ_PAY_BACK_URL = import.meta.env.PROD
   ? `${JAVA_BASE}/agentReqPayBack`
   : '/api/agentReqPayBack';
+
+export const AGENT_GAME_ROOM_INFO_URL = import.meta.env.PROD
+  ? `${JAVA_BASE}/agentGameRoomInfo`
+  : '/api/agentGameRoomInfo';
+export const AGENT_PLAYER_BASE_INFO_URL = import.meta.env.PROD
+  ? `${JAVA_BASE}/agentPlayerBaseInfo`
+  : '/api/agentPlayerBaseInfo';
+
+
 /** types */
 export interface AgentGameRecordItem {
   pid: number;
@@ -71,6 +80,97 @@ export interface AgentGameDetailResp {
   total?: number;
   [k: string]: any;
 }
+/**
+ * 游戏详情记录 - 玩家信息
+ */
+export interface PlayerPointInfo {
+  pid: number;        // 玩家ID
+  headUrl: string;    // 头像地址
+  name: string;       // 姓名
+  point: number;      // 分数
+}
+
+/**
+ * 游戏详情记录 - 单条记录
+ */
+export interface GameDetailRecordItem {
+  listInfo: PlayerPointInfo[];  // 玩家列表
+  roomID: number;                // 房间号
+  setID: number;                 // 小局数
+  endTime: number;               // 结束时间（秒级时间戳）
+  playbackCode: number;          // 回放码
+}
+
+/**
+ * 游戏详情记录 - 响应
+ */
+export interface AgentGameDetailRecordResp {
+  code?: number;
+  msg?: string;
+  data?: GameDetailRecordItem[];
+}
+
+
+/**
+ * 游戏开房统计接口类型定义
+ */
+export interface GameStatItem {
+  gameType: number;
+  roundCount: number;
+  totalSetCount: number;
+}
+
+export interface DailyStat {
+  date: string;
+  dailyRoomCount: number;
+  gameStats: GameStatItem[];
+}
+
+export interface AgentGameRoomInfoResp {
+  code?: number;
+  msg?: string;
+  data?: {
+    totalRoomCount: number;
+    startDate: string;
+    endDate: string;
+    totalDays: number;
+    queryGameTypes: string;
+    dailyStats: DailyStat[];
+  };
+}
+/**
+ * 玩家基础信息统计 - 每日统计数据
+ */
+export interface DailyPlayerStat {
+  date: string;                    // 统计日期（yyyyMMdd）
+  newRegUserCount: number;         // 新注册用户：下级增加多少人
+  dailyActiveUserCount: number;    // 日活跃用户：下级有多少活跃（登录数量）
+  roomCount: number;               // 开房次数：下级产生的开房次数
+  totalGameSetCount: number;       // 游戏总局数：下级产生的总局数
+  trialPlayRatio: number;          // 试玩比例：新注册用户参与开局的比例（0-1）
+  oldPlayerLoginCount: number;     // 老玩家登录人数：除去新注册用户后的下级人数
+  oldPlayerRatio: number;          // 老玩家比例：老玩家在日活用户中的比例（0-1）
+  nextDayRetention: number;        // 次日留存：昨天的新注册用户在今天的登录数
+  sevenDayRetention: number;       // 7日留存：前第7天注册的用户在今天的登录数
+  thirtyDayRetention: number;      // 30日留存：前第30天注册的用户在今天的登录数
+  totalMemberCount: number;        // 总成员数量：当前家族总成员数
+}
+
+/**
+ * 玩家基础信息统计 - 响应数据
+ */
+export interface AgentPlayerBaseInfoResp {
+  code?: number;
+  msg?: string;
+  data?: {
+    startDate: string;             // 查询开始日期（yyyyMMdd）
+    endDate: string;               // 查询结束日期（yyyyMMdd）
+    totalDays: number;             // 总天数
+    dailyStats: DailyPlayerStat[]; // 每日统计数据
+  };
+}
+
+
 
 /** normalize detail payload（兼容各种命名） */
 function normalizeGameDetailPayload(payload: any) {
@@ -132,44 +232,46 @@ function normalizeGameDetailPayload(payload: any) {
   return { records, totalPages, total };
 }
 
+
 /**
- * agentReqGameDetailRecord
- * 参数：{ pid, pagNum, showNum, sortType?, requestPid? }
- * 返回：{ records, totalPages, total }
+ * agentReqGameDetailRecord - 游戏详情记录
+ * 参数：{ pid, pagNum, showNum, requestPid, roomID? }
+ * 返回：原始响应
  */
 export async function agentReqGameDetailRecord(opts: {
-  pagNum?: number | string;
   pid: number | string;
-  requestPid?: number | string;
+  pagNum?: number | string;
   showNum?: number | string;
-  sortType?: number | string;
+  requestPid?: number | string;
   rooID?: string | number;
 }) {
   const pid = Number(
     opts.pid ??
-      localStorage.getItem('AGENT_PID') ??
-      localStorage.getItem('ACCOUNT_ID') ??
-      0,
+    localStorage.getItem('AGENT_PID') ??
+    localStorage.getItem('ACCOUNT_ID') ??
+    0,
   );
   const pagNum = Number(opts.pagNum ?? 1);
   const showNum = Number(opts.showNum ?? 10);
-  let sortType = Number(opts.sortType ?? 0);
-  if (!Number.isFinite(sortType)) sortType = 0;
   const requestPid = Number(
     opts.requestPid ??
-      localStorage.getItem('AGENT_PID') ??
-      localStorage.getItem('ACCOUNT_ID') ??
-      0,
+    localStorage.getItem('AGENT_PID') ??
+    localStorage.getItem('ACCOUNT_ID') ??
+    0,
   );
 
-  const body = {
+  const body: Record<string, any> = {
     pid,
     pagNum,
     showNum,
-    sortType,
     requestPid,
   };
-  if (opts.rooID) body.rooID = opts.rooID; /* === MOD: 如果提供则传给后端 */
+
+  // 如果提供了 roomID，则传给后端
+  if (opts.rooID !== undefined && opts.rooID !== null) {
+    body.rooID = opts.rooID;
+  }
+
   console.log(
     '[debug] agentReqGameDetailRecord ->',
     AGENT_REQ_GAME_DETAIL_RECORD_URL,
@@ -186,8 +288,8 @@ export async function agentReqGameDetailRecord(opts: {
     },
   );
 
-  const result = resp?.data ?? resp ?? {};
-  return normalizeGameDetailPayload(result);
+  console.log('[debug] agentReqGameDetailRecord resp=', resp);
+  return resp as unknown as AgentGameDetailRecordResp;
 }
 
 /**
@@ -466,14 +568,92 @@ export async function agentReqPayBack(params: {
 
   return resp as unknown as { data?: any; status?: number };
 }
+/**
+* agentGameRoomInfo - 游戏开房统计
+* 参数：{ startTime, endTime, requestPid? }
+* startTime/endTime: 毫秒级时间戳
+*/
+export async function agentGameRoomInfo(opts: {
+  startTime?: number;
+  endTime?: number;
+  requestPid?: number | string;
+}) {
+  const requestPid = Number(
+    opts.requestPid ??
+    localStorage.getItem('AGENT_PID') ??
+    localStorage.getItem('ACCOUNT_ID') ??
+    0,
+  );
 
+  // 默认今天的开始和结束时间（毫秒）
+  const today = new Date();
+  const defaultStart = new Date(today.setHours(0, 0, 0, 0)).getTime();
+  const defaultEnd = new Date(today.setHours(23, 59, 59, 999)).getTime();
 
+  const body = {
+    requestPid,
+    startTime: opts.startTime ?? defaultStart,
+    endTime: opts.endTime ?? defaultEnd,
+    gameType: opts.gameType ?? '', // 默认空字符串表示全部游戏
+  };
+
+  console.log('[debug] agentGameRoomInfo body=', body, 'endpoint=', AGENT_GAME_ROOM_INFO_URL);
+
+  const resp = await apiJavaPost(AGENT_GAME_ROOM_INFO_URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
+
+  console.log('[debug] agentGameRoomInfo resp=', resp);
+  return resp as unknown as AgentGameRoomInfoResp;
+}
+/**
+ * agentPlayerBaseInfo - 玩家基础信息统计
+ * 参数：{ startTime, endTime, requestPid? }
+ * startTime/endTime: 毫秒级时间戳
+ */
+export async function agentPlayerBaseInfo(opts: {
+  startTime?: number;
+  endTime?: number;
+  requestPid?: number | string;
+}) {
+  const requestPid = Number(
+    opts.requestPid ??
+    localStorage.getItem('AGENT_PID') ??
+    localStorage.getItem('ACCOUNT_ID') ??
+    0,
+  );
+
+  // 默认一个月前到昨天（毫秒）
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const defaultStart = new Date(oneMonthAgo.setHours(0, 0, 0, 0)).getTime();
+  const defaultEnd = new Date(yesterday.setHours(23, 59, 59, 999)).getTime();
+
+  const body = {
+    requestPid,
+    startTime: opts.startTime ?? defaultStart,
+    endTime: opts.endTime ?? defaultEnd,
+  };
+
+  console.log('[debug] agentPlayerBaseInfo body=', body, 'endpoint=', AGENT_PLAYER_BASE_INFO_URL);
+
+  const resp = await apiJavaPost(AGENT_PLAYER_BASE_INFO_URL, body, JAVA_SECRET, {
+    contentType: 'form',
+    secretKeyName: JAVA_SECRET_KEY_NAME,
+  });
+
+  console.log('[debug] agentPlayerBaseInfo resp=', resp);
+  return resp as unknown as AgentPlayerBaseInfoResp;
+}
 
 export default {
   agentReqGameRecord,
   agentReqPlayerGameRecord,
   agentReqGameDetailRecord,
   agentReqPayBack,
-
-
+  agentGameRoomInfo,
+  agentPlayerBaseInfo,
 };

@@ -69,6 +69,9 @@ const columns: VxeGridProps<any>['columns'] = [
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
   { field: 'markStr', title: '备注' },
+  { field: 'fenCheng', title: '分成' },
+
+
   {
     field: 'action',
     title: '操作',
@@ -160,6 +163,7 @@ const gridOptions: VxeGridProps<any> = {
             gold: it.gold ?? it.bean ?? 0,
             remark: it.remark ?? it.setRemark ?? '',
             markStr: it.markStr ?? '',
+            fenCheng: it.fenCheng ?? '',
             _raw: { ...it, pid, isBanned }, // 把 isBanned 放到 _raw
             isBanned, // 也把字段放到行顶层，方便模板判断
           };

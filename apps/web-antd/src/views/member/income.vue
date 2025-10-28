@@ -68,12 +68,14 @@ const rateModalLoading = ref(false);
 // ====== 列定义（收益维度） ======
 const columns: VxeGridProps<any>['columns'] = [
   { field: 'pid', title: '玩家ID' }, // === MOD
-  { field: 'headUrl', title: '头像', slots: { default: 'avatar' }, width: 90 },
-  { field: 'level', title: '身份', width: 90 },
+  { field: 'headUrl', title: '头像', slots: { default: 'avatar' },},
+  { field: 'level', title: '身份',  },
   { field: 'name', title: '玩家名称' },
-  { field: 'contributions', title: '收益贡献', width: 120 },  // === MOD
-  { field: 'revenueType', title: '收益类型', width: 120 },    // === MOD
-  { field: 'revenue', title: '我的收益', width: 120 },        // === MOD
+  { field: 'contributions', title: '收益贡献',  },  // === MOD
+  { field: 'revenueType', title: '收益类型', },    // === MOD
+  { field: 'revenue', title: '我的收益', },        // === MOD
+  { field: 'markStr', title: '备注', },
+  { field: 'fenCheng', title: '分成', },
   {
     field: 'action',
     title: '操作',
@@ -148,6 +150,7 @@ const gridOptions: VxeGridProps<any> = {
             revenueType: it.revenueType ?? it.revenue_type ?? '',
             revenue: Number(it.revenue ?? it.myRevenue ?? it.revenueValue ?? 0),
             markStr: it.markStr ?? '',
+            fenCheng: it.fenCheng ?? '',
             _raw: { ...it, pid },
           };
         });

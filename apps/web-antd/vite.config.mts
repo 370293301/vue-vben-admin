@@ -10,7 +10,7 @@ export default defineConfig(async () => {
         proxy: {
           // 所有以 /api 开头的请求转发到真实 Java 服务
           '/api': {
-            target: 'http://47.117.179.59:9888',
+            target: 'http://47.117.179.59:9885',
             changeOrigin: true,
             secure: false,
             // 把 /api 前缀去掉（/api/agentPlayerList -> /agentPlayerList）

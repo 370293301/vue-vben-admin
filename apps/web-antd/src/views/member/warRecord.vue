@@ -201,6 +201,8 @@ const columns: VxeGridProps<RowItem>['columns'] = [
     slots: { header: 'header-points', default: 'score' },
   },
   { field: 'markStr', title: '备注标记' },
+  { field: 'fenCheng', title: '分成' },
+
 
   {
     field: 'action',
@@ -375,6 +377,7 @@ const gridOptions: VxeGridProps<RowItem> = {
             ),
             points: Number(it.points ?? it.score ?? 0),
             markStr: it.markStr ?? '',
+            fenCheng: it.fenCheng ?? '',
             // 把后端原始数据和标准化字段放进 _raw，保证 MemberActions 能读取 pid/isBanned 等
             _raw: { ...it, pid, isBanned },
             isBanned,
@@ -441,7 +444,7 @@ function viewChildrenFromActions(row: RowItem) {
     <Grid table-title="玩家战绩">
       <template #toolbar-tools>
         <RangePicker
-          v-model:value="timeRange"
+          v-model:value="searchState.timeRange"
           style="width: 240px; margin-right: 12px"
           show-time
         />
