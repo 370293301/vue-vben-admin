@@ -62,13 +62,14 @@ const selectedRowForRate = ref<any>(null);
 const rateModalLoading = ref(false);
 // 表格列同你的原来定义...
 const columns: VxeGridProps<any>['columns'] = [
-  { field: 'id', title: '玩家ID' },
+  { field: 'id', title: '玩家ID', slots: { default: 'cell-id' } },
   { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
-  { field: 'name', title: '玩家名称' },
-  { field: 'nobleLevel', title: '贵族等级' },
+  { field: 'name', title: '玩家名称',slots: { default: 'cell-name' } },
+  { field: 'level', title: '身份' },
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
   { field: 'markStr', title: '备注' },
+  { field: 'lowNum', title: '下级数量' },
   { field: 'fenCheng', title: '分成' },
 
 
@@ -158,12 +159,12 @@ const gridOptions: VxeGridProps<any> = {
             id: pid,
             headImageUrl: it.headUrl ?? it.headImageUrl ?? it.avatar ?? '',
             name: it.name ?? it.nickname ?? '',
-            nobleLevel: it.nobleLevel ?? it.level ?? 0,
+            level: it.level ?? 0,
             crystal: it.diamond ?? 0,
             gold: it.gold ?? it.bean ?? 0,
-            remark: it.remark ?? it.setRemark ?? '',
             markStr: it.markStr ?? '',
-            fenCheng: it.fenCheng ?? '',
+            lowNum: it.lowNum ??  0,
+            fenCheng: it.fenCheng+'%' ?? '',
             _raw: { ...it, pid, isBanned }, // 把 isBanned 放到 _raw
             isBanned, // 也把字段放到行顶层，方便模板判断
           };
@@ -384,6 +385,13 @@ function goBack() {
       <!--        <div class="header-top-cell">总金豆：{{ stats.sumGold }}</div>-->
       <!--        <div class="header-bottom-cell">剩余金豆</div>-->
       <!--      </template>-->
+      <template #cell-id="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.id }}</span>
+      </template>
+
+      <template #cell-name="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.name }}</span>
+      </template>
       <template #avatar="{ row }">
         <Image :src="row.headImageUrl" :width="40" :height="40" />
       </template>
@@ -456,6 +464,10 @@ function goBack() {
   </Page>
 </template>
 <style scoped>
+.level-1 {
+  color: #ff4d4f; /* 红色，ant design 常用的 danger 红 */
+  font-weight: 600;
+}
 .header-top-cell {
   padding: 4px 8px;
   font-size: 12px;

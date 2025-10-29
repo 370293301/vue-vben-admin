@@ -67,10 +67,10 @@ const rateModalLoading = ref(false);
 
 // ====== 列定义（收益维度） ======
 const columns: VxeGridProps<any>['columns'] = [
-  { field: 'pid', title: '玩家ID' }, // === MOD
+  {  field: 'pid', title: '玩家id', slots: { default: 'cell-id' } },
   { field: 'headUrl', title: '头像', slots: { default: 'avatar' },},
   { field: 'level', title: '身份',  },
-  { field: 'name', title: '玩家名称' },
+  { field: 'name', title: '玩家名称',slots: { default: 'cell-name' } },
   { field: 'contributions', title: '收益贡献',  },  // === MOD
   { field: 'revenueType', title: '收益类型', },    // === MOD
   { field: 'revenue', title: '我的收益', },        // === MOD
@@ -150,7 +150,7 @@ const gridOptions: VxeGridProps<any> = {
             revenueType: it.revenueType ?? it.revenue_type ?? '',
             revenue: Number(it.revenue ?? it.myRevenue ?? it.revenueValue ?? 0),
             markStr: it.markStr ?? '',
-            fenCheng: it.fenCheng ?? '',
+            fenCheng: it.fenCheng+'%' ?? '',
             _raw: { ...it, pid },
           };
         });
@@ -280,7 +280,14 @@ function confirmRate() {
           <Button v-if="pidStack.length > 0" type="default" style="margin-right: 8px" @click="goBack">返回上级</Button>
         </div>
       </template>
+      <template #toolbar-tools-after> </template>
+      <template #cell-id="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.pid }}</span>
+      </template>
 
+      <template #cell-name="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.name }}</span>
+      </template>
       <template #avatar="{ row }">
         <Image :src="row.headUrl" :width="40" :height="40" />
       </template>
@@ -319,6 +326,10 @@ function confirmRate() {
 </template>
 
 <style scoped>
+.level-1 {
+  color: #ff4d4f; /* 红色，ant design 常用的 danger 红 */
+  font-weight: 600;
+}
 .totals-only th {
   box-sizing: border-box;
   padding: 6px 8px;

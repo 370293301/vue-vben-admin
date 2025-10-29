@@ -172,14 +172,15 @@ interface RowItem {
   points?: number;
 }
 const columns: VxeGridProps<RowItem>['columns'] = [
-  { field: 'pid', title: 'PID' },
+
+  {  field: 'pid', title: '玩家id', slots: { default: 'cell-id' } },
   {
     field: 'headUrl',
     title: '头像',
     slots: { default: 'avatar' },
   },
   { field: 'level', title: '身份' },
-  { field: 'name', title: '玩家名称' },
+  { field: 'name', title: '玩家名称',slots: { default: 'cell-name' } },
   {
     field: 'setCount',
     title: '局数',
@@ -201,6 +202,7 @@ const columns: VxeGridProps<RowItem>['columns'] = [
     slots: { header: 'header-points', default: 'score' },
   },
   { field: 'markStr', title: '备注标记' },
+  { field: 'lowNum', title: '下级数量' },
   { field: 'fenCheng', title: '分成' },
 
 
@@ -377,7 +379,8 @@ const gridOptions: VxeGridProps<RowItem> = {
             ),
             points: Number(it.points ?? it.score ?? 0),
             markStr: it.markStr ?? '',
-            fenCheng: it.fenCheng ?? '',
+            fenCheng: it.fenCheng+'%' ?? '',
+            lowNum: it.lowNum ??  0,
             // 把后端原始数据和标准化字段放进 _raw，保证 MemberActions 能读取 pid/isBanned 等
             _raw: { ...it, pid, isBanned },
             isBanned,
@@ -510,7 +513,13 @@ function viewChildrenFromActions(row: RowItem) {
       </template>
 
       <template #toolbar-tools-after> </template>
+      <template #cell-id="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.pid }}</span>
+      </template>
 
+      <template #cell-name="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.name }}</span>
+      </template>
       <template #avatar="{ row }">
         <Image :src="row.headUrl" :width="36" :height="36" />
       </template>
@@ -615,6 +624,10 @@ function viewChildrenFromActions(row: RowItem) {
 </template>
 
 <style scoped>
+.level-1 {
+  color: #ff4d4f; /* 红色，ant design 常用的 danger 红 */
+  font-weight: 600;
+}
 /* 窄屏时调整：隐藏底部（列名）以节省高度，但保留合计（top），并缩小 top 字体 */
 @media (max-width: 900px) {
   /* .header-bottom-cell { display: none; } */

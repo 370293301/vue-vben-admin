@@ -313,6 +313,47 @@ export async function apiSetRate(params: { pid: number; rate: number; requestPid
   console.log('[debug] apiSetRate resp=', resp);
   return resp as unknown as { data?: any; status?: number };
 }
+/**
+ * 充值测试（agentTestRecharge）
+ * params:
+ *  - pid: 被充值玩家 pid
+ *  - rechargeId: 充值记录/商品 ID（正整数）
+ *  - appPrice: 价格（数字，单位按后端约定）
+ *  - requestPid: 请求者 pid（可选，默认从 localStorage 读取）
+ *
+ * 返回：后端响应原样返回，resp 结构按后端而定
+ */
+export async function apiTestRecharge(params: {
+  rechargeId: number | string;
+  appPrice: number | string;
+}) {
+  const rechargeId = Number(params.rechargeId || 0);
+  const AppPrice = Number(params.appPrice || 0);
+
+  const body = {
+    rechargeId,
+    AppPrice,
+  };
+
+  console.log('[debug] apiTestRecharge sending body=', body);
+
+  const JAVA_BASE = (import.meta.env.PROD ? (import.meta.env.VITE_API_URL as string) : '');
+  const URL = import.meta.env.PROD ? `${JAVA_BASE}/testRecharge` : '/api/testRecharge';
+
+  const resp = await apiJavaPost(
+    URL,
+    body,
+    JAVA_SECRET,
+    {
+      contentType: 'form',
+      secretKeyName: JAVA_SECRET_KEY_NAME,
+    }
+  );
+
+  console.log('[debug] apiTestRecharge resp=', resp);
+  return resp as unknown as { data?: any; status?: number };
+}
+
 
 export default {
   apiGetMemberList,
@@ -321,4 +362,5 @@ export default {
   apiSetRecommend,
   apiBanGame,
   apiSetRate,
+  apiTestRecharge,
 };

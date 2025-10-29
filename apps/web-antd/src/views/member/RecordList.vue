@@ -6,9 +6,27 @@ import { Button, DatePicker, message, Select, Table } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { agentReqPlayerGameRecord } from '#/api/game';
 import DetailModalContent from './DetailModalContent.vue';
-
+import gameTypeMap from '#/data/gametype.json';
 const route = useRoute();
 const router = useRouter();
+
+const gameTypeOptions = ref<Array<{ value: number; label: string }>>([]);
+
+// 生成下拉选项（Id -> value，Name_1 -> label）
+function buildGameTypeOptions() {
+  if (!gameTypeMap || typeof gameTypeMap !== 'object') {
+    gameTypeOptions.value = [];
+    return;
+  }
+  gameTypeOptions.value = Object.keys(gameTypeMap)
+    .map((k) => {
+      const it: any = gameTypeMap[k];
+      const id = Number(it?.Id ?? it?.id ?? k);
+      const label = String(it?.Name_1 ?? it?.Name ?? '');
+      return { value: id, label };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
 
 // 解析 PID
 const targetPid = ref<number>(0);
@@ -183,6 +201,7 @@ function applyManualPid() {
 }
 
 onMounted(() => {
+  buildGameTypeOptions();
   if (targetPid.value) loadList(1);
 });
 </script>
@@ -249,10 +268,15 @@ onMounted(() => {
           style="width: 160px"
         />
 
-        <Select v-model:value="filters.gameType" style="width: 140px">
+        <Select v-model:value="filters.gameType" style="width: 220px" placeholder="选择游戏">
           <Select.Option :value="0">全部游戏</Select.Option>
-          <Select.Option :value="1">麻将</Select.Option>
-          <Select.Option :value="2">扑克</Select.Option>
+          <Select.Option
+            v-for="opt in gameTypeOptions"
+            :key="opt.value"
+            :value="opt.value"
+          >
+            {{ opt.label }}
+          </Select.Option>
         </Select>
 
         <Button type="primary" @click="() => loadList(1)">查询</Button>

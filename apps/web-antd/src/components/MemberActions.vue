@@ -9,6 +9,7 @@ import {
   apiSetRate,
   apiSetRecommend,
   apiSetRemark,
+  apiTestRecharge
 } from '#/api/member';
 
 type RowLike = {
@@ -49,7 +50,11 @@ const recommendIdInput = ref('');
 // rate modal state
 const showRateModal = ref(false);
 const rateInput = ref('');
-
+// recharge modal state (新增)
+const showRechargeModal = ref(false);
+const rechargeIdInput = ref('');
+const appPriceInput = ref('');
+const rechargeLoading = ref(false);
 // helper to get requestPid
 function getRequestPid() {
   return Number(
@@ -298,11 +303,84 @@ async function confirmRate() {
     rateLoading.value = false;
   }
 }
+function openRechargeModal() {
+  rechargeIdInput.value = '';
+  appPriceInput.value = '';
+  showRechargeModal.value = true;
+}
+function cancelRechargeModal() {
+  showRechargeModal.value = false;
+  rechargeIdInput.value = '';
+  appPriceInput.value = '';
+}
+
+async function confirmRecharge() {
+  if (rechargeLoading.value) return;
+  rechargeLoading.value = true;
+  try {
+
+    const rid = String(rechargeIdInput.value ?? '').trim();
+    if (!rid) {
+      message.warning('请输入 rechargeId');
+      return;
+    }
+    const rechargeId = Number(rid);
+    if (Number.isNaN(rechargeId) || rechargeId <= 0 || !Number.isInteger(rechargeId)) {
+      message.warning('rechargeId 必须为正整数');
+      return;
+    }
+
+    const priceRaw = String(appPriceInput.value ?? '').trim();
+    if (!priceRaw) {
+      message.warning('请输入 AppPrice');
+      return;
+    }
+    const appPrice = Number(priceRaw);
+    if (Number.isNaN(appPrice) || appPrice <= 0) {
+      message.warning('AppPrice 必须为大于 0 的数字');
+      return;
+    }
+
+    const resp = await apiTestRecharge({
+      rechargeId,
+      appPrice,
+    });
+
+    const data = resp?.data ?? resp;
+    const ok = data?.success === true || data?.setResult === true || data?.code === 0 || data === true;
+
+    if (ok) {
+      message.success('充值测试成功');
+
+      // 如果后端返回了更新的字段（例如 balance），合并并通知父组件更新
+      const updated: Partial<RowLike> = {};
+      if (data?.balance != null) {
+        updated._raw = { ...props.row._raw, balance: data.balance };
+        (updated as any).balance = data.balance;
+      }
+      if (Object.keys(updated).length > 0) {
+        emit('row-updated', updated);
+      }
+
+      // 关闭并清理
+      cancelRechargeModal();
+    } else {
+      message.error(data?.msg ?? data?.message ?? '充值测试失败');
+    }
+  } catch (error: any) {
+    console.error('confirmRecharge error =>', error);
+    message.error(error?.message ?? '充值测试出错');
+  } finally {
+    rechargeLoading.value = false;
+  }
+}
+
+
 </script>
 
 <template>
   <div style="display: flex; flex-wrap: wrap; gap: 8px">
-    <Button size="small" type="primary" ghost @click="onViewChildren">
+    <Button   v-if="isPromoter()" size="small" type="primary" ghost @click="onViewChildren">
       查看下级
     </Button>
     <Button
@@ -333,8 +411,11 @@ async function confirmRate() {
     >
       {{ props.row._raw?.isBanned ? '解冻' : '冻结' }}
     </Button>
-    <Button size="small" @click="openRateModal">调整充值分成比例</Button>
-
+    <Button   v-if="isPromoter()" size="small" @click="openRateModal">调整充值分成比例</Button>
+    <!-- 新增：充值测试按钮 -->
+    <Button size="small" type="primary" :loading="rechargeLoading" @click="openRechargeModal">
+      充值测试
+    </Button>
     <!-- 从属修改 Modal -->
     <Modal
       v-model:open="showRecommendModal"
@@ -363,6 +444,20 @@ async function confirmRate() {
       <div style="display: flex; flex-direction: column; gap: 8px">
         <div>请输入新的分成比例（0 - 100）：</div>
         <Input v-model:value="rateInput" placeholder="例如：10 表示 10%" />
+      </div>
+    </Modal>
+    <Modal
+      v-model:open="showRechargeModal"
+      title="充值测试"
+      :confirm-loading="rechargeLoading"
+      @ok="confirmRecharge"
+      @cancel="cancelRechargeModal"
+    >
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div>请输入 rechargeId（正整数）：</div>
+        <Input v-model:value="rechargeIdInput" placeholder="例如：12345" />
+        <div>请输入 AppPrice（数值，大于 0）：</div>
+        <Input v-model:value="appPriceInput" placeholder="例如：9.99" />
       </div>
     </Modal>
   </div>
