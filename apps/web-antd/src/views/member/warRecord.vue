@@ -21,6 +21,7 @@ import { agentReqGameRecord } from '#/api/game';
 import MemberActions from '#/components/MemberActions.vue';
 
 import DetailModalContent from './DetailModalContent.vue';
+
 const router = useRouter(); /* === MOD: router */
 const { RangePicker } = DatePicker; // 根据实际路径调整
 
@@ -146,7 +147,10 @@ function onHeaderSort(col: 'points' | 'setCount') {
 
 // 顶部筛选状态
 const searchState = reactive({
-  timeRange: null as any, // ✅ 时间范围
+  timeRange: [
+    dayjs().startOf('day').valueOf(), // 当天 00:00:00
+    dayjs().endOf('day').valueOf(),   // 当天 23:59:59
+  ] as any,
   field: 'uid' as 'uid' | 'nickname' | 'mark',
   keyword: '',
   sortType: 0, // 0 默认、1 钻石 ↓、2 钻石 ↑、3 金豆 ↓、4 金豆 ↑ （复用你定义的含义）
@@ -450,6 +454,8 @@ function viewChildrenFromActions(row: RowItem) {
           v-model:value="searchState.timeRange"
           style="width: 240px; margin-right: 12px"
           show-time
+          format="YYYY-MM-DD HH:mm:ss"
+          value-format="x"
         />
         <Select
           v-model:value="searchState.field"

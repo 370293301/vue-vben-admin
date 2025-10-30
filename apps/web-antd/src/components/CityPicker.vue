@@ -123,13 +123,17 @@ const checkedMap = reactive<Record<number, boolean>>({});
 const allowedCityIdSet = computed(() => {
   const set = new Set<number>();
 
-  if (!props.cityIdList) return set;
+  // ✅ 优先使用 localStorage 中的 cityIdList
+  const cityIdListFromStorage = localStorage.getItem('cityIdList');
+  const cityIdListToUse = cityIdListFromStorage || props.cityIdList;
+
+  if (!cityIdListToUse) return set;
 
   let ids: number[] = [];
 
-  if (typeof props.cityIdList === 'string') {
+  if (typeof cityIdListToUse === 'string') {
     // "1220101,1220102,1220103" 或 "1220101;资阳市;资阳,1220102;..." 格式
-    const items = props.cityIdList.split(',');
+    const items = cityIdListToUse.split(',');
     for (const item of items) {
       const parts = item.split(';');
       const id = Number(parts[0]?.trim());
@@ -137,9 +141,9 @@ const allowedCityIdSet = computed(() => {
         ids.push(id);
       }
     }
-  } else if (Array.isArray(props.cityIdList)) {
+  } else if (Array.isArray(cityIdListToUse)) {
     // 直接是数组格式
-    for (const item of props.cityIdList) {
+    for (const item of cityIdListToUse) {
       if (typeof item === 'number') {
         ids.push(item);
       } else if (typeof item === 'string') {
@@ -185,7 +189,8 @@ function getAllParentIds(nodeId: number): Set<number> {
   return parentIds;
 }
 
-/* ✨ 计算可见的ID集合（allowedCityIdSet 中的ID + 它们的所有父级） */
+
+/* ✨ 改进：不再将父级ID加入 visibleIdSet，而是单独判断 */
 const visibleIdSet = computed(() => {
   const visible = new Set<number>();
 
@@ -197,30 +202,52 @@ const visibleIdSet = computed(() => {
     return visible;
   }
 
-  // 添加所有允许的ID
+  // ✅ 只添加允许的城市ID，不添加父级
   for (const id of allowedCityIdSet.value) {
     visible.add(id);
   }
 
-  // 添加这些ID的所有父级
-  for (const id of allowedCityIdSet.value) {
-    const parentIds = getAllParentIds(id);
-    parentIds.forEach(pid => visible.add(pid));
-  }
-
   return visible;
 });
+/* ✨ 检查一个节点或其子孙节点中是否有被允许的城市 */
+function hasAllowedDescendants(node: CityNode): boolean {
+  // 如果没有限制，全部允许
+  if (allowedCityIdSet.value.size === 0) {
+    return true;
+  }
 
+  // 检查自己是否在允许列表中
+  if (visibleIdSet.value.has(node.id)) {
+    return true;
+  }
+
+  // 递归检查子节点
+  if (node.children && node.children.length > 0) {
+    return node.children.some(child => hasAllowedDescendants(child));
+  }
+
+  return false;
+}
 /* ✨ 递归过滤树 - 只显示可见的节点 */
 function filterTreeByVisibleIds(nodes: CityNode[] | undefined): CityNode[] {
   if (!nodes) return [];
 
   return nodes
-    .filter((node) => visibleIdSet.value.has(node.id))
-    .map((node) => ({
-      ...node,
-      children: filterTreeByVisibleIds(node.children),
-    }));
+    .filter((node) => {
+      // 检查该节点或其子孙中是否有允许的城市
+      return hasAllowedDescendants(node);
+    })
+    .map((node) => {
+      // 递归过滤子节点
+      const filteredChildren = node.children
+        ? filterTreeByVisibleIds(node.children)
+        : [];
+
+      return {
+        ...node,
+        children: filteredChildren,
+      };
+    });
 }
 
 /* ✨ 过滤后的省份列表 */
@@ -255,7 +282,42 @@ const selectedItems = computed(() => {
   }
   return items;
 });
+/* ✅ 当过滤后的省份列表变化时，自动选择第一个省份 */
+watch(
+  filteredProvinces,
+  (provinces) => {
+    if (provinces.length > 0) {
+      // 如果当前选中的省份不在过滤列表中，或者没有选中省份
+      const isCurrentProvVisible = provinces.some(p => p.id === activeProvId.value);
 
+      if (!isCurrentProvVisible) {
+        // 自动选择第一个省份
+        selectProvince(provinces[0]);
+      }
+    } else {
+      // 没有可见省份，清空选择
+      activeProvId.value = null;
+      activeCityId.value = null;
+    }
+  },
+  { immediate: true }
+);
+
+/* ✅ 当 visible 变为 true 时，也重新初始化选择 */
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible && filteredProvinces.value.length > 0) {
+      const isCurrentProvVisible = filteredProvinces.value.some(
+        p => p.id === activeProvId.value
+      );
+
+      if (!isCurrentProvVisible) {
+        selectProvince(filteredProvinces.value[0]);
+      }
+    }
+  }
+);
 /* 将外部 props.selected 同步到本地 selectedIds & checkedMap（只同步，不 emit） */
 watch(
   () => props.selected,
