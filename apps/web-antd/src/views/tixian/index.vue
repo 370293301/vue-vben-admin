@@ -33,7 +33,8 @@ const sortOptions = [
 // ====== 设置收款账号弹窗 ======
 const setDlgOpen = ref(false);
 const setDlgLoading = ref(false);
-const cashAccountInput = ref('');
+const storageKey = 'recAccountID';
+const cashAccountInput = ref(localStorage.getItem(storageKey) ?? '')
 
 // ====== 表格列 ======
 type Row = {
@@ -75,7 +76,8 @@ const gridOptions: VxeGridProps<Row> = {
         });
 
         const data = res?.data ?? res ?? {};
-        const list = Array.isArray(data.listInfo) ? data.listInfo : [];
+        const list = Array.isArray(data.data.listInfo) ? data.data.listInfo : [];
+        console.log(list);
         const items: Row[] = list.map((it: any) => ({
           id: it.id,
           time: it.time,
@@ -105,7 +107,8 @@ async function refreshBalance() {
     balanceLoading.value = true;
     const res = await agentGetDrawMoney();
     const d = res?.data ?? res ?? {};
-    balance.value = Number(d.drawMoney ?? 0);
+    console.log(d)
+    balance.value = Number(d.data ?? 0);
   } finally {
     balanceLoading.value = false;
   }

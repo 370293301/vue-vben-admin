@@ -9,6 +9,11 @@
           :value="filters.city"
           placeholder="请选择城市（点击展开）"
           class="city-input"
+          :style="{
+            borderColor: token.colorBorder,
+            background: token.colorBgContainer,
+            color: token.colorText
+          }"
           @click="openPicker"
         />
         <Button type="primary" @click="runQuery">确认</Button>
@@ -95,6 +100,7 @@ import CityPicker from '#/components/CityPicker.vue';
 import citiesData from '#/data/cities.json';
 import gameTypeData from '#/data/gametype.json';
 import { agentMainInfo } from '#/api/account';
+import { theme } from 'ant-design-vue';
 function onConfirm(list: any[]) {
   console.log('用户确认：', list);
 }
@@ -172,7 +178,40 @@ const recharge = ref<number[]>([]);
 const gameDays = ref<string[]>([]);
 const gameSeries = ref<any[]>([]);
 
+/**
+ * ✨ 初始化城市选择
+ * 从 localStorage 中获取 agentLogin 返回的城市列表，初始化 selectedCityIds
+ */
+function initializeCities() {
+  try {
+    // 从 localStorage 获取 cityIdList（假设 agentLogin 接口将其存储在这里）
+    const cityIdListStr = localStorage.getItem('cityIdList') || '';
 
+    if (!cityIdListStr) {
+      console.log('[initializeCities] 没有找到 cityIdList');
+      return;
+    }
+
+    // 解析城市ID列表（支持多种格式：","、"," 或单个ID）
+    const cityIdList = cityIdListStr
+      .split(',')
+      .map((id) => Number(id.trim()))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
+    console.log('[initializeCities] 解析的城市ID列表:', cityIdList);
+
+    if (cityIdList.length === 0) {
+      console.log('[initializeCities] 城市ID列表为空');
+      return;
+    }
+
+    // 设置选中的城市ID
+    selectedCityIds.value = cityIdList;
+    console.log('[initializeCities] 已初始化城市选择:', selectedCityIds.value);
+  } catch (error) {
+    console.error('[initializeCities] 错误:', error);
+  }
+}
 /**
  * 加载首页数据
  */
@@ -325,6 +364,7 @@ function runQuery() {
 
 
 onMounted(() => {
+  initializeCities();
   runQuery();
 });
 
@@ -332,7 +372,7 @@ function openPicker() {
   pickerVisible.value = true;
 }
 
-
+const { token } = theme.useToken();
 </script>
 
 <style scoped>
@@ -349,9 +389,20 @@ function openPicker() {
   width: 360px;
   padding: 8px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(0,0,0,0.08);
-  background: white;
+  border: 1px solid;
+  transition: all 0.3s;
 }
+
+.city-input:hover {
+  border-color: v-bind('token.colorPrimaryHover') !important;
+}
+
+.city-input:focus {
+  outline: none;
+  border-color: v-bind('token.colorPrimary') !important;
+  box-shadow: 0 0 0 2px v-bind('token.colorPrimaryBg');
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

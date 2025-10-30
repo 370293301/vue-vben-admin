@@ -30,7 +30,7 @@ const searchState = reactive({
   field: 'uid' as 'uid' | 'nickname' | 'mark',
   keyword: '',
 });
-
+const { RangePicker } = DatePicker;
 // === MOD: 收益排序（0默认、1贡献↓、2贡献↑、3我的收益↓、4我的收益↑） ===
 const sortState = reactive({
   sortType: 0,
@@ -45,7 +45,8 @@ const sortOptions = [
 
 // === MOD: 日期（必传 timeSpace，未选则默认“今天0点”） ===
 const filterDate = ref<Date | null>(null);
-const timeRange = ref<[number, number] | null>(null);
+// const timeRange = ref<[number, number] | null>(null);
+const timeRange = ref<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
 // 当前查询的目标 pid（用于“查看下级”功能）
 const currentTargetPid = ref<number>(
   Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0),
@@ -82,6 +83,7 @@ const columns: VxeGridProps<any>['columns'] = [
     showOverflow: false,
     slots: { default: 'action' },
     width: 220,
+    minWidth: 100,
   },
 ];
 
@@ -150,7 +152,7 @@ const gridOptions: VxeGridProps<any> = {
             revenueType: it.revenueType ?? it.revenue_type ?? '',
             revenue: Number(it.revenue ?? it.myRevenue ?? it.revenueValue ?? 0),
             markStr: it.markStr ?? '',
-            fenCheng: it.fenCheng+'%' ?? '',
+            fenCheng: it.fenCheng != null ? it.fenCheng + '%' : '',
             _raw: { ...it, pid },
           };
         });
@@ -262,7 +264,8 @@ function confirmRate() {
           v-model:value="timeRange"
           style="width: 280px; margin-right: 8px"
           placeholder="选择时间范围"
-          show-time
+          :show-time="{ format: 'HH:mm:ss' }"
+          format="YYYY-MM-DD HH:mm:ss"
         />
 
         <Button type="primary" @click="() => gridApi.query()">查询</Button>
@@ -334,5 +337,42 @@ function confirmRate() {
   box-sizing: border-box;
   padding: 6px 8px;
   font-size: 13px;
+}
+/* ✅ CSS 媒体查询 - 控制操作列宽度 */
+@media (max-width: 768px) {
+  :deep(.vxe-table) {
+    table-layout: auto !important;
+  }
+
+  :deep(.vxe-table colgroup col:last-child) {
+    width: auto !important;
+  }
+
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 80px !important;
+    min-width: 80px !important;
+  }
+
+
+  /* ✅ 手机端操作列内边距设为 0 */
+  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {
+    padding: 0 !important;
+  }
+
+  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {
+    padding: 0 4px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  :deep(.vxe-table colgroup col:last-child) {
+    width: 220px !important;
+  }
+
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 220px !important;
+  }
 }
 </style>

@@ -510,11 +510,11 @@ export async function agentReqPayBack(params: {
   // 必发：当天 0 点（毫秒 Long）
   const timeSpace = dayjs(params.date ?? new Date()).startOf('day').valueOf();
 // 如果传入 date 对象，则转换为秒级时间戳
-  if (params.date && !params.startTime && !params.endTime) {
-    const dateObj = new Date(params.date);
-    startTime = Math.floor(dateObj.setHours(0, 0, 0, 0) / 1000);
-    endTime = Math.floor(dateObj.setHours(23, 59, 59, 999) / 1000);
-  }
+//   if (params.date && !params.startTime && !params.endTime) {
+//     const dateObj = new Date(params.date);
+//     startTime = Math.floor(dateObj.setHours(0, 0, 0, 0) / 1000);
+//     endTime = Math.floor(dateObj.setHours(23, 59, 59, 999) / 1000);
+//   }
   const body: Record<string, any> = {
     pagNum,
     showNum,
@@ -525,7 +525,7 @@ export async function agentReqPayBack(params: {
     name: '',          // 后端要求必传字符串
     startTime: startTime, // ✅ 秒级时间戳
     endTime: endTime,     // ✅ 秒级时间戳
-    timeSpace,        // 某天 0 点时间戳（毫秒）
+    // timeSpace,        // 某天 0 点时间戳（毫秒）
   };
 
   if (isSearching) {

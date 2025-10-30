@@ -10,7 +10,8 @@ import type { Ref } from 'vue';
  */
 export function createTotalsThemeManager(opts: {
   columns: any[];
-  stats: { sumDiamond?: null | number; sumGold?: null | number };
+  stats: { sumDiamond?: null | number; sumGold?: null | number; allPoints?: null | number;
+    sumCost?: null | number  };
   totalsTableRef: Ref<HTMLElement | null>;
   vxeGridRef?: null | Ref<any>;
 }) {
@@ -172,8 +173,10 @@ export function createTotalsThemeManager(opts: {
     const ths = [...totalsTable.querySelectorAll('th')] as HTMLElement[];
     for (const [i, th] of ths.entries()) {
       const col = Array.isArray(columns) ? (columns as any)[i] : undefined;
-      const field = col ? (col.field as string) : undefined;
-
+      // const field = col ? (col.field as string) : undefined;
+      const field = col
+        ? (col.key ?? col.field ?? undefined) as string | undefined
+        : undefined;
       switch (field) {
         case 'crystal': {
           th.textContent = String(stats.sumDiamond ?? 0);
@@ -183,6 +186,16 @@ export function createTotalsThemeManager(opts: {
         case 'gold': {
           th.textContent = String(stats.sumGold ?? 0);
 
+          break;
+        }
+        case 'playerInfo': {
+          // ✅ RecordList: 得分字段
+          th.textContent = String(stats.allPoints ?? 0);
+          break;
+        }
+        case 'roomSportsConsume': {
+          // ✅ RecordList: 房费字段
+          th.textContent = String(stats.sumCost ?? 0);
           break;
         }
         case 'contributions': {                // ✅ 新增：收益贡献
@@ -197,7 +210,8 @@ export function createTotalsThemeManager(opts: {
         }
         case 'id':
         case 'pid':
-        case 'uid': {
+        case 'uid':
+        case 'createTime': {
           th.textContent = '合计';
           break;
         }

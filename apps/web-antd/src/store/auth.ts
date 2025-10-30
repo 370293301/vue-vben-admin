@@ -308,6 +308,10 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('AGENT_PASSWORD', encryptedPassword); // 存储已加密的密码
         localStorage.setItem('AGENT_PASSWORD_PLAIN', form.password); // 也可以存储明文（根据需求调整）
         localStorage.setItem('AGENT_TOKEN', token);
+        localStorage.setItem('cityIdList', responseData.data?.cityIdList);
+        localStorage.setItem('recAccountID', responseData.data?.recAccountID);
+
+
 
         // 6. 设置 token 到 store
         this.setToken(token);
@@ -426,6 +430,11 @@ export const useAuthStore = defineStore('auth', {
           localStorage.removeItem('AGENT_USERNAME');
           localStorage.removeItem('AGENT_PASSWORD');
           localStorage.removeItem('AGENT_PASSWORD_PLAIN');
+          localStorage.removeItem('cityIdList');
+          localStorage.removeItem('recAccountID');
+
+
+
           // 弹出提示
           message.error('密码已修改，请重新登录');
           // 执行登出
@@ -456,6 +465,8 @@ export const useAuthStore = defineStore('auth', {
         if (pid) {
           localStorage.setItem('AGENT_PID', pid);
         }
+        localStorage.setItem('cityIdList', responseData.data?.cityIdList);
+        localStorage.setItem('recAccountID', responseData.data?.recAccountID);
         const userStore = useUserStore();
         if (userStore) {
           userStore.setUserInfo(userInfo);
@@ -548,6 +559,8 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('AGENT_PASSWORD');
       localStorage.removeItem('AGENT_PASSWORD_PLAIN');
       sessionStorage.removeItem('menusRegistered');
+      localStorage.removeItem('cityIdList');
+      localStorage.removeItem('recAccountID');
 
       // const hashPrefix = import.meta.env.DEV ? '' : '#';
 

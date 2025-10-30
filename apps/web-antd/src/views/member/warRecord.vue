@@ -209,10 +209,10 @@ const columns: VxeGridProps<RowItem>['columns'] = [
   {
     field: 'action',
     title: '操作',
-    width: 220, // <- 必须给一个明确值（根据按钮数量调整）
     showOverflow: false,
-    fixed: 'right',
     slots: { default: 'action' },
+    width: 220,
+    minWidth: 100,
   },
 ];
 
@@ -379,7 +379,7 @@ const gridOptions: VxeGridProps<RowItem> = {
             ),
             points: Number(it.points ?? it.score ?? 0),
             markStr: it.markStr ?? '',
-            fenCheng: it.fenCheng+'%' ?? '',
+            fenCheng: it.fenCheng != null ? it.fenCheng + '%' : '',
             lowNum: it.lowNum ??  0,
             // 把后端原始数据和标准化字段放进 _raw，保证 MemberActions 能读取 pid/isBanned 等
             _raw: { ...it, pid, isBanned },
@@ -586,14 +586,7 @@ function viewChildrenFromActions(row: RowItem) {
         </div>
       </template>
       <template #action="{ row }">
-        <div
-          style="
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: flex-end;
-          "
-        >
+        <div>
           <MemberActions
             :row="row"
             @view-children="() => viewChildren(row)"
@@ -697,6 +690,42 @@ function viewChildrenFromActions(row: RowItem) {
   overflow-wrap: anywhere !important;
   white-space: normal !important;
 }
+/* ✅ CSS 媒体查询 - 控制操作列宽度 */
+@media (max-width: 768px) {
+  :deep(.vxe-table) {
+    table-layout: auto !important;
+  }
 
+  :deep(.vxe-table colgroup col:last-child) {
+    width: auto !important;
+  }
+
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 80px !important;
+    min-width: 80px !important;
+  }
+
+
+  /* ✅ 手机端操作列内边距设为 0 */
+  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {
+    padding: 0 !important;
+  }
+
+  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {
+    padding: 0 4px !important;
+  }
+}
+
+@media (min-width: 769px) {
+  :deep(.vxe-table colgroup col:last-child) {
+    width: 220px !important;
+  }
+
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 220px !important;
+  }
+}
 /* 如果你之前写过把 header-top-cell 隐藏的规则（例如 @media (max-width:1000px) .header-top-cell {display:none}）请删除它 */
 </style>

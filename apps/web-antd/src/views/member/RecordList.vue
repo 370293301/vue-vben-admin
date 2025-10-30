@@ -1,16 +1,28 @@
 <!-- RecordList.vue - 战绩记录页面 -->
 <script setup lang="ts">
-import { createVNode, onMounted, reactive, ref, render, watch } from 'vue';
+import { createVNode, nextTick, onBeforeUnmount, onMounted, reactive, ref, render, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Button, DatePicker, message, Select, Table } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { agentReqPlayerGameRecord } from '#/api/game';
 import DetailModalContent from './DetailModalContent.vue';
 import gameTypeMap from '#/data/gametype.json';
+import { createTotalsThemeManager } from '#/utils/totalsThemeManager';
+
 const route = useRoute();
 const router = useRouter();
 
 const gameTypeOptions = ref<Array<{ value: number; label: string }>>([]);
+
+// 全局统计数据
+const stats = reactive({
+  allPoints: 0,
+  sumCost: 0,
+});
+
+// totals 表格的 DOM ref
+const totalsTableRef = ref<HTMLElement | null>(null);
+const vxeGridRef = ref<any>(null);
 
 // 生成下拉选项（Id -> value，Name_1 -> label）
 function buildGameTypeOptions() {
@@ -26,6 +38,24 @@ function buildGameTypeOptions() {
       return { value: id, label };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+// 根据游戏类型ID获取游戏名称
+function getGameTypeName(gameTypeId: number | string): string {
+  const id = Number(gameTypeId);
+  if (!gameTypeMap || typeof gameTypeMap !== 'object') {
+    return String(gameTypeId);
+  }
+
+  // 遍历 gameTypeMap 找对应的 Id
+  for (const key in gameTypeMap) {
+    const item: any = gameTypeMap[key];
+    if (Number(item?.Id ?? item?.id) === id) {
+      return String(item?.Name_1 ?? item?.Name ?? gameTypeId);
+    }
+  }
+
+  return String(gameTypeId);
 }
 
 // 解析 PID
@@ -79,8 +109,9 @@ const columns = [
   { title: '局数', dataIndex: 'setCount', key: 'setCount' },
   { title: '人数', dataIndex: 'playerNum', key: 'playerNum' },
   { title: '游戏类型', dataIndex: 'gameType', key: 'gameType' },
+  { title: '得分', key: 'playerInfo' },
   { title: '房费', dataIndex: 'roomSportsConsume', key: 'roomSportsConsume' },
-  { title: '操作', key: 'action', width: 160 },
+  { title: '操作', key: 'action' },
 ];
 
 const rowKey = (record: any) =>
@@ -93,7 +124,7 @@ function normalizeListFromResp(resp: any) {
   const rawList = payload.listInfo ?? payload.list ?? payload.items ?? [];
   const list = Array.isArray(rawList) ? rawList : [];
   const total = Number(payload.totalPages ?? payload.total ?? 1);
-  return { list, total };
+  return { list, total, payload };
 }
 
 // 加载列表
@@ -125,7 +156,13 @@ async function loadList(p = 1) {
     }
 
     const resp = await agentReqPlayerGameRecord(bodyOpts);
-    const { list, total } = normalizeListFromResp(resp);
+
+    const { list, total, payload } = normalizeListFromResp(resp);
+
+    // 从接口响应中获取合计数据
+    stats.allPoints = Number(payload.allPoints ?? payload.totalPoints ?? payload.sumPoints ?? 0);
+    stats.sumCost = Number(payload.sumCost ?? payload.totalCost ?? payload.totalRoomSportsConsume ?? 0);
+
     records.value = list;
     totalPages.value = Number(total || 1);
     page.value = p;
@@ -200,9 +237,35 @@ function applyManualPid() {
   loadList(1);
 }
 
+// 根据当前PID获取该玩家的得分
+function getPlayerPointByPid(record: any) {
+  const pid = Number(targetPid.value || 0);
+  if (!pid || !record.listInfo || !Array.isArray(record.listInfo)) {
+    return '-';
+  }
+
+  const player = record.listInfo.find((p: any) => {
+    const playerPid = Number(p?.pid ?? p?.playerId ?? 0);
+    return playerPid === pid;
+  });
+
+  return player?.point ?? player?.score ?? '-';
+}
+
 onMounted(() => {
   buildGameTypeOptions();
   if (targetPid.value) loadList(1);
+
+  // 初始化合计行主题管理
+  nextTick(() => {
+    const totalsManager = createTotalsThemeManager({
+      totalsTableRef,
+      vxeGridRef,
+      columns,
+      stats,
+    });
+    totalsManager.start();
+  });
 });
 </script>
 
@@ -282,6 +345,49 @@ onMounted(() => {
         <Button type="primary" @click="() => loadList(1)">查询</Button>
       </div>
 
+      <!-- 独立的合计表格（放在 Grid 上方） -->
+      <table
+        ref="totalsTableRef"
+        class="totals-only"
+        aria-hidden="true"
+        style="
+          display: none;
+          width: 100%;
+          margin-bottom: 8px;
+          table-layout: fixed;
+          border-collapse: collapse;
+        "
+      >
+        <colgroup>
+          <col v-for="col in columns" :key="col.key" />
+        </colgroup>
+        <thead>
+        <tr>
+          <th
+            v-for="col in columns"
+            :key="col.key"
+            style="
+                box-sizing: border-box;
+                min-height: 36px;
+                padding: 6px 8px;
+                font-weight: 600;
+                text-align: center;
+                white-space: nowrap;
+              "
+          >
+            <template v-if="col.key === 'createTime'">合计</template>
+            <template v-else-if="col.key === 'playerInfo'">
+              {{ stats.allPoints }}
+            </template>
+            <template v-else-if="col.key === 'roomSportsConsume'">
+              {{ stats.sumCost }}
+            </template>
+            <template v-else>&nbsp;</template>
+          </th>
+        </tr>
+        </thead>
+      </table>
+
       <!-- 数据表格 -->
       <Table
         :dataSource="records"
@@ -291,7 +397,15 @@ onMounted(() => {
         :pagination="false"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'action'">
+          <template v-if="column.key === 'gameType'">
+            {{ getGameTypeName(record.gameType) }}
+          </template>
+          <template v-else-if="column.key === 'playerInfo'">
+            <div style="font-weight: 500; font-size: 16px">
+              {{ getPlayerPointByPid(record) }}
+            </div>
+          </template>
+          <template v-else-if="column.key === 'action'">
             <a @click.prevent="() => openDetailForRoom(record)">查看明细</a>
           </template>
         </template>
@@ -318,5 +432,15 @@ onMounted(() => {
   max-width: 780px;
   margin: 20px auto;
   border-radius: 8px;
+}
+
+.totals-only th {
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.totals-only {
+  background: var(--vben-header-bg, transparent);
 }
 </style>

@@ -14,7 +14,7 @@
           <div class="col col-province">
             <ul>
               <li
-                v-for="prov in filteredProvinces"
+                v-for="prov in provinces"
                 :key="prov.id"
                 :class="{ active: prov.id === activeProvId }"
                 @click="selectProvince(prov)"
@@ -82,24 +82,11 @@
 
 <script lang="ts" setup>
 import { computed, ref, reactive, watch } from 'vue';
-import { theme } from 'ant-design-vue';
-
-// ✅ 获取 Ant Design Token
-const { token } = theme.useToken();
-
-interface CityNode {
-  id: number;
-  name: string;
-  level?: number;
-  children?: CityNode[];
-  pid?: number;
-}
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
   selected: { type: Array as () => number[], default: () => [] },
-  cities: { type: Array as () => CityNode[], default: () => [] },
-  cityIdList: { type: [String, Array] as any, default: () => [] }, // ✨ 新增：只显示这些城市ID
+  cities: { type: Array as () => any[], default: () => [] },
 });
 const emit = defineEmits(['update:visible', 'update:selected', 'confirm', 'cancel']);
 
@@ -119,121 +106,12 @@ const activeCityId = ref<number | null>(null);
 /* checkbox 状态映射（key: id -> boolean） */
 const checkedMap = reactive<Record<number, boolean>>({});
 
-/* ✨ 解析 cityIdList（可能是字符串或数组） */
-const allowedCityIdSet = computed(() => {
-  const set = new Set<number>();
-
-  if (!props.cityIdList) return set;
-
-  let ids: number[] = [];
-
-  if (typeof props.cityIdList === 'string') {
-    // "1220101,1220102,1220103" 或 "1220101;资阳市;资阳,1220102;..." 格式
-    const items = props.cityIdList.split(',');
-    for (const item of items) {
-      const parts = item.split(';');
-      const id = Number(parts[0]?.trim());
-      if (Number.isFinite(id) && id > 0) {
-        ids.push(id);
-      }
-    }
-  } else if (Array.isArray(props.cityIdList)) {
-    // 直接是数组格式
-    for (const item of props.cityIdList) {
-      if (typeof item === 'number') {
-        ids.push(item);
-      } else if (typeof item === 'string') {
-        const id = Number(item);
-        if (Number.isFinite(id) && id > 0) {
-          ids.push(id);
-        }
-      }
-    }
-  }
-
-  ids.forEach(id => set.add(id));
-  return set;
-});
-
-const cityMap = computed(() => {
-  const map = new Map<number, CityNode>();
-
-  function buildMap(nodes: CityNode[] | undefined) {
-    if (!nodes) return;
-    for (const node of nodes) {
-      map.set(node.id, node);
-      if (node.children) {
-        buildMap(node.children);
-      }
-    }
-  }
-
-  buildMap(props.cities);
-  return map;
-});
-
-/* ✨ 获取节点的所有父节点ID */
-function getAllParentIds(nodeId: number): Set<number> {
-  const parentIds = new Set<number>();
-  let current = cityMap.value.get(nodeId);
-
-  while (current && current.pid) {
-    parentIds.add(current.pid);
-    current = cityMap.value.get(current.pid);
-  }
-
-  return parentIds;
-}
-
-/* ✨ 计算可见的ID集合（allowedCityIdSet 中的ID + 它们的所有父级） */
-const visibleIdSet = computed(() => {
-  const visible = new Set<number>();
-
-  // 如果没有指定 cityIdList，显示全部
-  if (allowedCityIdSet.value.size === 0) {
-    for (const node of cityMap.value.values()) {
-      visible.add(node.id);
-    }
-    return visible;
-  }
-
-  // 添加所有允许的ID
-  for (const id of allowedCityIdSet.value) {
-    visible.add(id);
-  }
-
-  // 添加这些ID的所有父级
-  for (const id of allowedCityIdSet.value) {
-    const parentIds = getAllParentIds(id);
-    parentIds.forEach(pid => visible.add(pid));
-  }
-
-  return visible;
-});
-
-/* ✨ 递归过滤树 - 只显示可见的节点 */
-function filterTreeByVisibleIds(nodes: CityNode[] | undefined): CityNode[] {
-  if (!nodes) return [];
-
-  return nodes
-    .filter((node) => visibleIdSet.value.has(node.id))
-    .map((node) => ({
-      ...node,
-      children: filterTreeByVisibleIds(node.children),
-    }));
-}
-
-/* ✨ 过滤后的省份列表 */
-const filteredProvinces = computed(() => {
-  return filterTreeByVisibleIds(props.cities);
-});
-
 /* 解析 cities */
+const provinces = computed(() => props.cities || []);
 const citiesOfActiveProv = computed(() => {
-  const prov = filteredProvinces.value.find((p: any) => p.id === activeProvId.value);
+  const prov = provinces.value.find((p: any) => p.id === activeProvId.value);
   return prov && prov.children ? prov.children : [];
 });
-
 const districtsOfActiveCity = computed(() => {
   const city = citiesOfActiveProv.value.find((c: any) => c.id === activeCityId.value);
   return city && city.children ? city.children : [];
@@ -262,11 +140,14 @@ watch(
   (v) => {
     const arr = Array.isArray(v) ? v.slice() : [];
     selectedIds.value = arr;
-    // 初始化/同步 checkedMap（只处理允许的城市）
-    for (const id of allowedCityIdSet.value) {
-      const node = cityMap.value.get(id);
-      if (node) {
-        checkedMap[id] = arr.includes(id);
+    // 初始化/同步 checkedMap
+    for (const prov of provinces.value) {
+      if (!prov.children) continue;
+      for (const city of prov.children) {
+        if (!city.children) continue;
+        for (const node of city.children) {
+          checkedMap[node.id] = arr.includes(node.id);
+        }
       }
     }
   },
@@ -325,10 +206,16 @@ function removeOne(item: any) {
     emit('update:selected', arr);
   }
 }
+// function handleConfirm() {
+//   emit('confirm', selectedItems.value);
+//   visibleModel.value = false;
+// }
 
 function handleConfirm() {
+  // selectedIds 是子组件内部维护的 number[]（你代码里已有）
   const ids = selectedIds.value || [];
 
+  // payload 规则：多个 -> "1,2,3"（字符串），一个 -> 123（数字），无 -> null
   let payload: string | number | null = null;
   if (ids.length > 1) {
     payload = ids.join(',');
@@ -336,7 +223,10 @@ function handleConfirm() {
     payload = ids[0];
   }
 
+  // 发事件到父：父的 @confirm 会拿到这个 payload
   emit('confirm', payload);
+
+  // 关闭弹窗（通过 v-model:visible 与父同步）
   visibleModel.value = false;
 }
 function handleCancel() {
@@ -344,20 +234,19 @@ function handleCancel() {
   visibleModel.value = false;
 }
 
-/* 遮罩点击 */
+/* 遮罩点击（你要求 mask-closable=false 的话这里不关闭；若想允许遮罩关闭可改为 handleCancel） */
 function onMaskClick() {
   // do nothing (mask-closable = false behavior)
+  // 如果需要点击遮罩关闭，改成: handleCancel();
 }
 </script>
 
 <style scoped>
-/* ✅ 使用 v-bind 绑定 token 颜色 */
-
-/* mask 与 modal 基础样式 */
+/* mask 与 modal 基础样式（你可以根据主题微调颜色/圆角/阴影） */
 .cp-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0,0,0,0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -367,45 +256,34 @@ function onMaskClick() {
 .cp-modal {
   width: 900px;
   max-height: 80vh;
-  background: v-bind('token.colorBgElevated');
-  color: v-bind('token.colorText');
+  background: var(--cp-bg, #0e0f11);
+  color: var(--cp-color, #cfcfcf);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
   display: flex;
   flex-direction: column;
 }
 
 /* header */
 .cp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid v-bind('token.colorBorderSecondary');
+  border-bottom: 1px solid rgba(255,255,255,0.03);
 }
-.cp-title {
-  font-weight: 600;
-  color: v-bind('token.colorText');
-}
+.cp-title { font-weight:600; }
 .cp-close {
-  background: transparent;
+  background:transparent;
   border: none;
-  color: v-bind('token.colorTextSecondary');
-  font-size: 18px;
+  color: #cfcfcf;
+  font-size:18px;
   cursor: pointer;
-  transition: color 0.3s;
-}
-.cp-close:hover {
-  color: v-bind('token.colorText');
 }
 
 /* body */
-.cp-body {
-  padding: 12px 16px;
-  overflow: auto;
-  flex: 1;
-}
+.cp-body { padding: 12px 16px; overflow: auto; flex:1; }
 .picker-wrap {
   display: flex;
   gap: 12px;
@@ -413,160 +291,37 @@ function onMaskClick() {
 }
 
 /* columns */
-.col {
-  background: transparent;
-}
-.col-province {
-  width: 160px;
-}
-.col-city {
-  width: 160px;
-}
-.col-district {
-  width: 220px;
-}
-.col-selected {
-  flex: 1;
-  min-width: 200px;
-}
+.col { background: transparent; }
+.col-province { width: 160px; }
+.col-city { width: 160px; }
+.col-district { width: 220px; }
+.col-selected { flex: 1; min-width: 200px; }
 
 /* lists */
-.col ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.col li {
-  padding: 10px 12px;
-  cursor: pointer;
-  color: v-bind('token.colorTextSecondary');
-  user-select: none;
-  border-radius: 4px;
-  transition: all 0.3s;
-}
-.col li:hover {
-  background: v-bind('token.colorBgTextHover');
-  color: v-bind('token.colorText');
-}
-.col li.active {
-  background: v-bind('token.colorPrimaryBg');
-  color: v-bind('token.colorPrimary');
-}
+.col ul { list-style:none; padding:0; margin:0; }
+.col li { padding: 10px 12px; cursor: pointer; color: #bdbdbd; user-select:none; }
+.col li.active { background: rgba(255,255,255,0.06); color: #66b1ff; border-radius:4px; }
 
 /* checkbox label */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-  color: v-bind('token.colorText');
-}
-.checkbox-label input {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-}
+.checkbox-label { display:flex; align-items:center; gap:8px; cursor: pointer; user-select:none; color:#cfcfcf; }
+.checkbox-label input { width: 16px; height:16px; }
 
 /* selected area */
-.selected-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 6px;
-  color: v-bind('token.colorText');
-}
-.link-clear {
-  color: v-bind('token.colorError');
-  cursor: pointer;
-  text-decoration: none;
-  transition: opacity 0.3s;
-}
-.link-clear:hover {
-  opacity: 0.8;
-}
-.selected-list {
-  padding: 8px 6px;
-  max-height: 260px;
-  overflow: auto;
-}
-.selected-list li {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  color: v-bind('token.colorText');
-  align-items: center;
-}
-.sel-remove {
-  color: v-bind('token.colorError');
-  cursor: pointer;
-  margin-left: 12px;
-  transition: opacity 0.3s;
-}
-.sel-remove:hover {
-  opacity: 0.8;
-}
+.selected-header { display:flex; justify-content:space-between; align-items:center; padding:8px 6px; color:#cfcfcf; }
+.link-clear { color:#ff6b6b; cursor:pointer; text-decoration:none; }
+.selected-list { padding:8px 6px; max-height: 260px; overflow:auto; }
+.selected-list li { display:flex; justify-content:space-between; padding:6px 0; color:#d0d0d0; align-items:center; }
+.sel-remove { color:#f56c6c; cursor:pointer; margin-left:12px; }
 
 /* actions */
-.actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  padding: 12px 6px;
-}
-.btn {
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-.btn-default {
-  background: transparent;
-  color: v-bind('token.colorText');
-  border: 1px solid v-bind('token.colorBorder');
-}
-.btn-default:hover {
-  background: v-bind('token.colorBgTextHover');
-  border-color: v-bind('token.colorPrimary');
-}
-.btn-primary {
-  background: v-bind('token.colorPrimary');
-  color: #fff;
-  border: none;
-  box-shadow: 0 2px 6px v-bind('token.colorPrimaryBg');
-}
-.btn-primary:hover {
-  background: v-bind('token.colorPrimaryHover');
-}
-
-/* 滚动条样式 */
-.cp-body::-webkit-scrollbar,
-.selected-list::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.cp-body::-webkit-scrollbar-thumb,
-.selected-list::-webkit-scrollbar-thumb {
-  background: v-bind('token.colorBgTextActive');
-  border-radius: 3px;
-}
-.cp-body::-webkit-scrollbar-track,
-.selected-list::-webkit-scrollbar-track {
-  background: transparent;
-}
+.actions { display:flex; gap:12px; justify-content:flex-end; padding:12px 6px; }
+.btn { padding:8px 14px; border-radius:6px; border: none; cursor:pointer; font-weight:600; }
+.btn-default { background: transparent; color: #cfcfcf; border: 1px solid rgba(255,255,255,0.04); }
+.btn-primary { background: #1677ff; color: #fff; border: none; box-shadow: 0 2px 6px rgba(22,119,255,0.2); }
 
 @media (max-width: 980px) {
-  .cp-modal {
-    width: 92%;
-  }
-  .col-province,
-  .col-city {
-    width: 120px;
-  }
-  .col-district {
-    width: 160px;
-  }
+  .cp-modal { width: 92%; }
+  .col-province, .col-city { width:120px; }
+  .col-district { width:160px; }
 }
 </style>

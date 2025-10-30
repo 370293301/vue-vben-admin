@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref,  onMounted, onBeforeUnmount,computed } from 'vue';
+import { Button, Input, message, Modal, Dropdown, Menu } from 'ant-design-vue';
 
-import { Button, Input, message, Modal } from 'ant-design-vue';
 
 import {
   apiBanGame,
@@ -11,6 +11,13 @@ import {
   apiSetRemark,
   apiTestRecharge
 } from '#/api/member';
+// --- 响应式判断是否为手机 / 窄屏 ---
+const mobileBreakpoint = 768; // <= 480px 视为手机端（你可以改成 360 / 600 等）
+const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= mobileBreakpoint : false);
+
+function updateIsMobile() {
+  isMobile.value = window.innerWidth <= mobileBreakpoint;
+}
 
 type RowLike = {
   [k: string]: any;
@@ -55,6 +62,70 @@ const showRechargeModal = ref(false);
 const rechargeIdInput = ref('');
 const appPriceInput = ref('');
 const rechargeLoading = ref(false);
+// ✅ 修改 menuItems，去掉 icon 字段
+const menuItems = computed(() => {
+  const items = [];
+
+  if (isPromoter()) {
+    items.push({
+      key: 'view-children',
+      label: '查看下级',
+    });
+  }
+
+  if (!isPromoter()) {
+    items.push({
+      key: 'set-promoter',
+      label: '设为推广员',
+      loading: promoterLoading.value,
+    });
+  }
+
+  items.push({
+    key: 'set-remark',
+    label: '设置备注',
+    loading: remarkLoading.value,
+  });
+
+  items.push({
+    key: 'change-belong',
+    label: '从属修改',
+    loading: changeBelongLoading.value,
+  });
+
+  items.push({
+    key: 'freeze-toggle',
+    label: props.row._raw?.isBanned ? '解冻' : '冻结',
+    danger: !(props.row._raw?.isBanned === true),
+    loading: freezeLoading.value,
+  });
+
+  if (isPromoter() && !isSelfAgent()) {
+    items.push({
+      key: 'adjust-rate',
+      label: '调整充值分成比例',
+    });
+  }
+
+  items.push({
+    key: 'recharge-test',
+    label: '充值测试',
+    loading: rechargeLoading.value,
+  });
+
+  return items;
+});
+// helper to get current row pid
+function getRowPid() {
+  return Number(props.row._raw?.pid ?? props.row.id ?? 0);
+}
+// 如果请求者 pid 与当前行 pid 相同，则认为是玩家自己
+function isSelfAgent() {
+  const req = getRequestPid();
+  const rowPid = getRowPid();
+  return req !== 0 && req === rowPid;
+}
+
 // helper to get requestPid
 function getRequestPid() {
   return Number(
@@ -374,13 +445,69 @@ async function confirmRecharge() {
     rechargeLoading.value = false;
   }
 }
-
+// ✅ 下拉菜单点击处理（添加这个函数）
+function handleMenuClick({ key }: { key: string }) {
+  switch (key) {
+    case 'view-children':
+      onViewChildren();
+      break;
+    case 'set-promoter':
+      onSetPromoter();
+      break;
+    case 'set-remark':
+      onSetRemark();
+      break;
+    case 'change-belong':
+      openRecommendModal();
+      break;
+    case 'freeze-toggle':
+      onFreezeToggle();
+      break;
+    case 'adjust-rate':
+      openRateModal();
+      break;
+    case 'recharge-test':
+      openRechargeModal();
+      break;
+  }
+}
+onMounted(() => {
+  // 监听窗口尺寸变化
+  window.addEventListener('resize', updateIsMobile);
+  // 也兼容首次判断
+  updateIsMobile();
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateIsMobile);
+});
 
 </script>
-
 <template>
-  <div style="display: flex; flex-wrap: wrap; gap: 8px">
-    <Button   v-if="isPromoter()" size="small" type="primary" ghost @click="onViewChildren">
+  <!-- ✅ 手机端：下拉菜单 -->
+  <div v-if="isMobile">
+    <Dropdown trigger="click">
+      <Button type="primary" size="small">
+        操作 ▼
+      </Button>
+      <template #overlay>
+        <Menu @click="handleMenuClick">
+          <Menu.Item
+            v-for="item in menuItems"
+            :key="item.key"
+            :disabled="item.loading"
+            :danger="item.danger"
+          >
+            {{ item.label }}
+            <span v-if="item.loading" style="margin-left: 8px">...</span>
+          </Menu.Item>
+        </Menu>
+      </template>
+    </Dropdown>
+  </div>
+
+  <!-- ✅ PC端：按钮组 -->
+  <div v-else style="display: flex; flex-wrap: wrap; gap: 8px">
+    <Button v-if="isPromoter()" size="small" type="primary" ghost @click="onViewChildren">
       查看下级
     </Button>
     <Button
@@ -396,11 +523,7 @@ async function confirmRecharge() {
     <Button size="small" @click="onSetRemark" :loading="remarkLoading">
       设置备注
     </Button>
-    <Button
-      size="small"
-      @click="openRecommendModal"
-      :loading="changeBelongLoading"
-    >
+    <Button size="small" @click="openRecommendModal" :loading="changeBelongLoading">
       从属修改
     </Button>
     <Button
@@ -411,54 +534,61 @@ async function confirmRecharge() {
     >
       {{ props.row._raw?.isBanned ? '解冻' : '冻结' }}
     </Button>
-    <Button   v-if="isPromoter()" size="small" @click="openRateModal">调整充值分成比例</Button>
-    <!-- 新增：充值测试按钮 -->
+    <Button v-if="isPromoter() && !isSelfAgent()" size="small" @click="openRateModal">
+      调整充值分成比例
+    </Button>
     <Button size="small" type="primary" :loading="rechargeLoading" @click="openRechargeModal">
       充值测试
     </Button>
-    <!-- 从属修改 Modal -->
-    <Modal
-      v-model:open="showRecommendModal"
-      title="从属修改 - 输入推荐者ID"
-      :confirm-loading="changeBelongLoading"
-      @ok="confirmRecommend"
-      @cancel="cancelRecommend"
-    >
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <div>请输入新的推荐者ID（recommendId）：</div>
-        <Input
-          v-model:value="recommendIdInput"
-          placeholder="推荐者ID（数字）"
-        />
-      </div>
-    </Modal>
-
-    <!-- 分成比例 Modal -->
-    <Modal
-      v-model:open="showRateModal"
-      title="调整充值分成比例"
-      :confirm-loading="rateLoading"
-      @ok="confirmRate"
-      @cancel="cancelRateModal"
-    >
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <div>请输入新的分成比例（0 - 100）：</div>
-        <Input v-model:value="rateInput" placeholder="例如：10 表示 10%" />
-      </div>
-    </Modal>
-    <Modal
-      v-model:open="showRechargeModal"
-      title="充值测试"
-      :confirm-loading="rechargeLoading"
-      @ok="confirmRecharge"
-      @cancel="cancelRechargeModal"
-    >
-      <div style="display: flex; flex-direction: column; gap: 8px">
-        <div>请输入 rechargeId（正整数）：</div>
-        <Input v-model:value="rechargeIdInput" placeholder="例如：12345" />
-        <div>请输入 AppPrice（数值，大于 0）：</div>
-        <Input v-model:value="appPriceInput" placeholder="例如：9.99" />
-      </div>
-    </Modal>
   </div>
+
+  <!-- ... Modal 部分保持不变 ... -->
+  <!-- 从属修改 Modal -->
+  <Modal
+    v-model:open="showRecommendModal"
+    title="从属修改 - 输入推荐者ID"
+    :confirm-loading="changeBelongLoading"
+    @ok="confirmRecommend"
+    @cancel="cancelRecommend"
+  >
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div>请输入新的推荐者ID（recommendId）：</div>
+      <Input
+        v-model:value="recommendIdInput"
+        placeholder="推荐者ID（数字）"
+      />
+    </div>
+  </Modal>
+
+  <!-- 分成比例 Modal -->
+  <Modal
+    v-model:open="showRateModal"
+    title="调整充值分成比例"
+    :confirm-loading="rateLoading"
+    @ok="confirmRate"
+    @cancel="cancelRateModal"
+  >
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div>请输入新的分成比例（0 - 100）：</div>
+      <Input v-model:value="rateInput" placeholder="例如：10 表示 10%" />
+    </div>
+  </Modal>
+  <Modal
+    v-model:open="showRechargeModal"
+    title="充值测试"
+    :confirm-loading="rechargeLoading"
+    @ok="confirmRecharge"
+    @cancel="cancelRechargeModal"
+  >
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div>请输入 rechargeId（正整数）：</div>
+      <Input v-model:value="rechargeIdInput" placeholder="例如：12345" />
+      <div>请输入 AppPrice（数值，大于 0）：</div>
+      <Input v-model:value="appPriceInput" placeholder="例如：9.99" />
+    </div>
+  </Modal>
 </template>
+
+
+
+
