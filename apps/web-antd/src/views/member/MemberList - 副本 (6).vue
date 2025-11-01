@@ -404,40 +404,40 @@ function goBack() {
 /*}*/
 
 /* ✅ CSS 媒体查询 - 控制操作列宽度 */
-/*@media (max-width: 768px) {*/
-/*  :deep(.vxe-table) {*/
-/*    table-layout: auto !important;*/
-/*  }*/
+@media (max-width: 768px) {
+  :deep(.vxe-table) {
+    table-layout: auto !important;
+  }
 
-/*  :deep(.vxe-table colgroup col:last-child) {*/
-/*    width: auto !important;*/
-/*  }*/
+  :deep(.vxe-table colgroup col:last-child) {
+    width: auto !important;
+  }
 
-/*  :deep(.vxe-table .vxe-header--column:last-child),*/
-/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
-/*    width: 80px !important;*/
-/*    min-width: 80px !important;*/
-/*  }*/
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 80px !important;
+    min-width: 80px !important;
+  }
 
 
-/*  !* ✅ 手机端操作列内边距设为 0 *!*/
-/*  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {*/
-/*    padding: 0 !important;*/
-/*  }*/
+  /* ✅ 手机端操作列内边距设为 0 */
+  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {
+    padding: 0 !important;
+  }
 
-/*  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {*/
-/*    padding: 0 4px !important;*/
-/*  }*/
-/*}*/
+  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {
+    padding: 0 4px !important;
+  }
+}
 
-/*@media (min-width: 769px) {*/
-/*  :deep(.vxe-table colgroup col:last-child) {*/
-/*    width: 220px !important;*/
-/*  }*/
+@media (min-width: 769px) {
+  :deep(.vxe-table colgroup col:last-child) {
+    width: 220px !important;
+  }
 
-/*  :deep(.vxe-table .vxe-header--column:last-child),*/
-/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
-/*    width: 220px !important;*/
-/*  }*/
-/*}*/
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 220px !important;
+  }
+}
 </style>

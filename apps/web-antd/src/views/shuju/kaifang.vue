@@ -128,7 +128,14 @@ const gridOptions: VxeGridProps<Row> = {
           stats.startDate = data.startDate || '';
           stats.endDate = data.endDate || '';
 
-          const dailyStats: DailyStat[] = data.dailyStats || [];
+          let dailyStats: DailyStat[] = data.dailyStats || [];
+
+// ===== 新增：按日期正序排列 =====
+          dailyStats = dailyStats.sort((a, b) => {
+            const dateA = a.date || '';
+            const dateB = b.date || '';
+            return dateA.localeCompare(dateB);
+          })
           console.log('[proxyConfig.query] dailyStats 长度:', dailyStats.length);
 
           // 如果 dailyStats 为空，清空图表
@@ -204,6 +211,9 @@ const gridOptions: VxeGridProps<Row> = {
           console.log('[proxyConfig.query] 表格数据行数:', rows.length);
 
           // 如果没有有效数据，清空图表
+          rows.sort((a, b) => {
+            return b.date.localeCompare(a.date); // 注意是 b - a，倒序
+          });
           if (rows.length === 0) {
             message.info(`查询到总房间数 ${stats.totalRoomCount}，但该时间段内没有有效的游戏数据`);
 
@@ -258,11 +268,16 @@ function renderChart(dailyStats: DailyStat[]) {
   if (!chart) return;
 
   console.log('[renderChart] dailyStats:', dailyStats);
+  // ===== 新增：按日期正序排列 =====
+  const sortedDailyStats = [...dailyStats].sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    return dateA.localeCompare(dateB); // 字符串比较，适用于 YYYYMMDD 格式
+  });
+  console.log('[renderChart] 排序后的数据:', sortedDailyStats);
 
-  // X轴：日期（先定义，后面可能用到）
+  // X轴：日期（使用排序后的数据）
   const xData = dailyStats.map((stat) => formatDate(stat.date));
-  console.log('[renderChart] X轴数据:', xData);
-
   // 收集所有有效的游戏类型
   const gameTypeSet = new Set<number>();
   dailyStats.forEach((dayStat) => {
@@ -463,7 +478,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .panel {
   padding: 8px 12px 16px;
-  background: #fff;
+  /*background: #fff;*/
 }
 
 .toolbar {
@@ -486,6 +501,6 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 360px;
   margin: 12px 0;
-  background: #fff;
+  /*background: #fff;*/
 }
 </style>

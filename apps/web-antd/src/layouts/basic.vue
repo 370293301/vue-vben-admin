@@ -11,7 +11,6 @@ import { BookOpenText, CircleHelp, MdiGithub } from '@vben/icons';
 import {
   BasicLayout,
   LockScreen,
-  Notification,
   UserDropdown,
 } from '@vben/layouts';
 import { preferences } from '@vben/preferences';
@@ -22,45 +21,14 @@ import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
 
-const notifications = ref<NotificationItem[]>([
-  {
-    avatar: 'https://avatar.vercel.sh/vercel.svg?text=VB',
-    date: '3小时前',
-    isRead: true,
-    message: '描述信息描述信息描述信息',
-    title: '收到了 14 份新周报',
-  },
-  {
-    avatar: 'https://avatar.vercel.sh/1',
-    date: '刚刚',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '朱偏右 回复了你',
-  },
-  {
-    avatar: 'https://avatar.vercel.sh/1',
-    date: '2024-01-01',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '曲丽丽 评论了你',
-  },
-  {
-    avatar: 'https://avatar.vercel.sh/satori',
-    date: '1天前',
-    isRead: false,
-    message: '描述信息描述信息描述信息',
-    title: '代办提醒',
-  },
-]);
+
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const accessStore = useAccessStore();
 const router = useRouter();
 const { destroyWatermark, updateWatermark } = useWatermark();
-const showDot = computed(() =>
-  notifications.value.some((item) => !item.isRead),
-);
+
 
 const menus = computed(() => [
   // {
@@ -136,6 +104,7 @@ watch(
         @logout="handleLogout"
       />
     </template>
+
 <!--    <template #notification>-->
 <!--      <Notification-->
 <!--        :dot="showDot"-->
@@ -155,5 +124,20 @@ watch(
     <template #lock-screen>
       <LockScreen :avatar @to-login="handleLogout" />
     </template>
+
   </BasicLayout>
 </template>
+
+<style>
+/* 隐藏语言切换按钮 */
+/* 只隐藏包含语言图标的按钮 */
+button:has(.lucide-languages-icon),
+button:has(.lucide-languages) {
+  display: none !important;
+}
+
+/* 或者更精确 */
+button[id*="radix-vue-dropdown-menu-trigger"]:has(svg.lucide-languages) {
+  display: none !important;
+}
+</style>

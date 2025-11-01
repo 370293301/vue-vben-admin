@@ -81,6 +81,15 @@
           :smooth="true"
         />
       </Card>
+
+      <!-- 调试信息 -->
+      <Card v-if="false" size="small" style="margin-top: 12px;">
+        <div style="font-family: monospace; font-size: 12px;">
+          <div><strong>gameDays:</strong> {{ gameDays }}</div>
+          <div style="margin-top: 8px;"><strong>gameSeries:</strong></div>
+          <pre>{{ JSON.stringify(gameSeries, null, 2) }}</pre>
+        </div>
+      </Card>
     </div>
   </Page>
 </template>
@@ -99,8 +108,10 @@ import CityPicker from '#/components/CityPicker.vue';
 // 城市 JSON（路径按你项目实际位置调整）
 import citiesData from '#/data/cities.json';
 import gameTypeData from '#/data/gametype.json';
+import reasonMap from '#/data/roomcard-reason.json';
 import { agentMainInfo } from '#/api/account';
 import { theme } from 'ant-design-vue';
+
 function onConfirm(list: any[]) {
   console.log('用户确认：', list);
 }
@@ -153,6 +164,7 @@ const overview = reactive({
   agentToPlayerNum: 0,   // ✅ 下级推广员数量
   onLineNum: 0,          // ✅ 实时在线人数（新增）
 });
+
 /**
  * 获取游戏类型名称
  * @param gameType 游戏类型ID
@@ -160,7 +172,36 @@ const overview = reactive({
  */
 function getGameTypeName(gameType: number | string): string {
   const game = gameTypeData[String(gameType)];
-  return game ? game.Name_1 : `游戏${gameType}`;
+  const name = game ? game.Name_1 : `游戏${gameType}`;
+  console.log(`[getGameTypeName] gameType=${gameType} -> name=${name}`);
+  return name;
+}
+
+/**
+ * 获取原因名称（用于 gameType <= 0 的情况）
+ * @param reason 原因代码
+ * @returns 原因名称
+ */
+function getReasonName(reason: number | string): string {
+  const reasonItem = reasonMap[String(reason)];
+
+  // 处理两种可能的数据格式：
+  // 1. reasonItem 是对象：{ name: "xxx", description: "xxx" }
+  // 2. reasonItem 是字符串："xxx"
+  let name: string;
+
+  if (typeof reasonItem === 'string') {
+    // 如果是字符串，直接使用
+    name = reasonItem;
+  } else if (reasonItem && typeof reasonItem === 'object' && 'name' in reasonItem) {
+    // 如果是对象且有 name 属性
+    name = reasonItem.name;
+  } else {
+    // 否则使用默认值
+    name = `原因${reason}`;
+  }
+
+  return name;
 }
 function rnd(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -212,6 +253,7 @@ function initializeCities() {
     console.error('[initializeCities] 错误:', error);
   }
 }
+
 /**
  * 加载首页数据
  */
@@ -248,9 +290,6 @@ async function loadMainData() {
       days.value = sortedDailyNew.map((item: any) => {
         const dateStr = String(item.dateTime || '').trim();
 
-        // ✅ 调试：打印原始日期
-        console.log('[dailyNewPlayerNum] 原始日期:', dateStr);
-
         // ✅ 尝试多种格式
         let date = dayjs(dateStr, 'YYYYMMDD');
         if (!date.isValid()) {
@@ -263,15 +302,19 @@ async function loadMainData() {
         // ✅ 如果还是无效，使用默认值或返回原始字符串
         if (!date.isValid()) {
           console.warn('[dailyNewPlayerNum] 无效日期:', dateStr);
-          return dateStr || '未知日期'; // 返回原始字符串，不显示 Invalid Date
+          return dateStr || '未知日期';
         }
 
         return date.format('MM/DD');
       });
       console.log('[dailyNewPlayerNum] 处理后的日期:', days.value);
+
+      newUsers.value = sortedDailyNew.map((item: any) => {
+        return Number(item.newUserCount ?? 0);
+      });
     }
 
-// ✅ 处理每日充值金额数据
+    // ✅ 处理每日充值金额数据
     if (Array.isArray(data.familyDailyRecharge)) {
       const sortedRecharge = data.familyDailyRecharge.sort((a: any, b: any) => {
         return a.dateTime.localeCompare(b.dateTime);
@@ -282,35 +325,68 @@ async function loadMainData() {
       });
     }
 
-// ✅ 处理游戏消耗钻石数据
+    // ✅ 处理游戏消耗钻石数据（新结构：嵌套的 DailyConsumeList）
     if (Array.isArray(data.gameTypeDailyConsume)) {
-      // 按日期分组
-      const grouped: { [key: string]: { [key: number]: number } } = {};
+      console.log('[gameTypeDailyConsume] 开始处理，数据长度:', data.gameTypeDailyConsume.length);
 
-      for (const item of data.gameTypeDailyConsume) {
-        const dateTime = String(item.dateTime || '').trim();
-        const gameType = item.gameType;
-        const totalConsume = item.totalConsume ?? 0;
+      // 按日期分组，键为 "游戏类型名称" 或 "原因名称"
+      const grouped: { [key: string]: { [key: string]: number } } = {};
+      const allSeriesKeys = new Set<string>(); // 存储所有系列的键
 
-        // ✅ 调试：打印原始日期
-        console.log('[gameTypeDailyConsume] 原始日期:', dateTime, '游戏类型:', gameType);
+      for (const dateItem of data.gameTypeDailyConsume) {
+        const dateTime = String(dateItem.dateTime || '').trim();
 
-        if (!dateTime || !gameType) {
-          console.warn('[gameTypeDailyConsume] 日期或游戏类型为空', item);
+        if (!dateTime) {
+          console.warn('[gameTypeDailyConsume] 日期为空', dateItem);
           continue;
         }
 
+        // 初始化该日期的数据
         if (!grouped[dateTime]) {
           grouped[dateTime] = {};
         }
-        grouped[dateTime][gameType] = totalConsume;
+
+        // 处理 DailyConsumeList
+        if (Array.isArray(dateItem.DailyConsumeList) && dateItem.DailyConsumeList.length > 0) {
+          console.log(`[gameTypeDailyConsume] 处理日期 ${dateTime}, DailyConsumeList 长度:`, dateItem.DailyConsumeList.length);
+
+          for (const consume of dateItem.DailyConsumeList) {
+            const gameType = consume.gameType;
+            const reason = consume.reason;
+            const totalConsume = consume.totalConsume ?? 0;
+
+            console.log(`[gameTypeDailyConsume] ${dateTime} - gameType=${gameType}, reason=${reason}, totalConsume=${totalConsume}`);
+
+            let seriesKey: string;
+
+            // 根据 gameType 决定使用哪个映射
+            if (gameType > 0) {
+              // gameType > 0: 使用 gametype.json
+              seriesKey = getGameTypeName(gameType);
+              console.log(`[gameTypeDailyConsume] 使用游戏类型: ${seriesKey}`);
+            } else {
+              // gameType <= 0: 使用 roomcard-reason.json
+              seriesKey = getReasonName(reason);
+              console.log(`[gameTypeDailyConsume] 使用原因类型: ${seriesKey}`);
+            }
+
+            // 累加该系列在该日期的消耗
+            grouped[dateTime][seriesKey] = (grouped[dateTime][seriesKey] ?? 0) + totalConsume;
+            allSeriesKeys.add(seriesKey);
+
+            console.log(`[gameTypeDailyConsume] 累加后 ${dateTime}.${seriesKey} = ${grouped[dateTime][seriesKey]}`);
+          }
+        } else {
+          console.log(`[gameTypeDailyConsume] 日期 ${dateTime} 的 DailyConsumeList 为空或不是数组`);
+        }
       }
+
+      console.log('[gameTypeDailyConsume] 所有系列键:', Array.from(allSeriesKeys));
+      console.log('[gameTypeDailyConsume] 分组数据:', grouped);
 
       // 获取所有日期并排序
       const allDates = Object.keys(grouped).sort();
       gameDays.value = allDates.map((date) => {
-        console.log('[gameTypeDailyConsume] 处理日期:', date);
-
         // ✅ 尝试多种格式
         let d = dayjs(date, 'YYYYMMDD');
         if (!d.isValid()) {
@@ -323,7 +399,7 @@ async function loadMainData() {
         // ✅ 如果还是无效，返回原始值
         if (!d.isValid()) {
           console.warn('[gameTypeDailyConsume] 无效日期:', date);
-          return date || '未知'; // 返回原始字符串
+          return date || '未知';
         }
 
         return d.format('MM/DD');
@@ -331,27 +407,24 @@ async function loadMainData() {
 
       console.log('[gameTypeDailyConsume] 处理后的日期:', gameDays.value);
 
-      // 获取所有游戏类型
-      const allGameTypes = new Set<number>();
-      for (const dateData of Object.values(grouped)) {
-        for (const gameType of Object.keys(dateData)) {
-          allGameTypes.add(Number(gameType));
-        }
-      }
-
       // 构建系列数据
-      gameSeries.value = Array.from(allGameTypes)
+      gameSeries.value = Array.from(allSeriesKeys)
         .sort()
-        .map((gameType) => ({
-          name: getGameTypeName(gameType),
-          type: 'line',
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 6,
-          data: allDates.map((date) => grouped[date][gameType] ?? 0),
-        }));
+        .map((seriesKey) => {
+          const seriesData = allDates.map((date) => grouped[date][seriesKey] ?? 0);
+          console.log(`[gameTypeDailyConsume] 系列 "${seriesKey}" 数据:`, seriesData);
 
-      console.log('[gameTypeDailyConsume] 处理后的系列:', gameSeries.value);
+          return {
+            name: seriesKey,
+            type: 'line',
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 6,
+            data: seriesData,
+          };
+        });
+
+      console.log('[gameTypeDailyConsume] 最终系列数据:', JSON.stringify(gameSeries.value, null, 2));
     }
   } catch (error: any) {
     console.error('[loadMainData] 错误:', error);

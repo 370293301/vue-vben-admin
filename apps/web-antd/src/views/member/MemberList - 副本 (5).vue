@@ -64,16 +64,12 @@ const rateModalLoading = ref(false);
 
 // 表格列定义
 const columns: VxeGridProps<any>['columns'] = [
-  {
-    field: 'playerInfoNew',
-    title: '玩家',
-    width: 80,        // ✅ 固定宽度100px
-    minWidth: 80,     // ✅ 最小宽度100px
-    showOverflow: false, // ✅ 不截断内容
-    slots: { default: 'cell-player-info' }
-  },
+  { field: 'id', title: '玩家ID', slots: { default: 'cell-id' } },
+  { field: 'headImageUrl', title: '头像', slots: { default: 'avatar' } },
+  { field: 'name', title: '玩家名称', slots: { default: 'cell-name' } },
   { field: 'crystal', title: '剩余钻石' },
   { field: 'gold', title: '剩余金豆' },
+  { field: 'markStr', title: '备注' },
   { field: 'lowNum', title: '下级数量' },
   { field: 'fenCheng', title: '分成' },
   {
@@ -89,10 +85,6 @@ const columns: VxeGridProps<any>['columns'] = [
 const gridOptions: VxeGridProps<any> = {
   columns,
   height: 'auto',
-  rowConfig: {
-    isHover: true,
-    height: 'auto', // ✅ 添加这行，让行高自适应
-  },
   pagerConfig: { currentPage: 1, pageSize: 10, pageSizes: [10, 20, 50, 100] },
   toolbarConfig: { custom: true, export: false, refresh: false, zoom: false },
   proxyConfig: {
@@ -268,7 +260,7 @@ function goBack() {
       <thead>
       <tr>
         <th v-for="col in columns" :key="col.field">
-          <template v-if="col.field === 'playerInfoNew'">合计</template>
+          <template v-if="col.field === 'id'">合计</template>
           <template v-else-if="col.field === 'crystal'">
             {{ stats.sumDiamond }}
           </template>
@@ -331,40 +323,18 @@ function goBack() {
           </Button>
         </div>
       </template>
-      <!-- ✅ 新增：玩家信息插槽 -->
-      <!-- ✅ 修改：玩家信息插槽 - 垂直布局 -->
-      <template #cell-player-info="{ row }">
-        <div style="display: flex; flex-direction: column; gap: 0px; padding: 4px 0">
-          <!-- 头像 -->
-          <div>
-            <Image
-              :src="row.headImageUrl"
-              :width="40"
-              :height="40"
-            />
-          </div>
 
-          <!-- 玩家ID -->
-          <div>
-      <span :class="{ 'level-1': row.level === 1 }">
-        {{ row.id }}
-      </span>
-          </div>
-
-          <!-- 玩家名称 -->
-          <div>
-      <span :class="{ 'level-1': row.level === 1 }">
-        {{ row.name }}
-      </span>
-          </div>
-
-          <!-- 备注（如果有） -->
-          <div v-if="row.markStr" style="font-size: 12px; color: #999">
-            ({{ row.markStr }})
-          </div>
-        </div>
+      <template #cell-id="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.id }}</span>
       </template>
 
+      <template #cell-name="{ row }">
+        <span :class="{ 'level-1': row.level === 1 }">{{ row.name }}</span>
+      </template>
+
+      <template #avatar="{ row }">
+        <Image :src="row.headImageUrl" :width="40" :height="40" />
+      </template>
 
       <template #action="{ row }">
         <MemberActions
@@ -404,40 +374,40 @@ function goBack() {
 /*}*/
 
 /* ✅ CSS 媒体查询 - 控制操作列宽度 */
-/*@media (max-width: 768px) {*/
-/*  :deep(.vxe-table) {*/
-/*    table-layout: auto !important;*/
-/*  }*/
+@media (max-width: 768px) {
+  :deep(.vxe-table) {
+    table-layout: auto !important;
+  }
 
-/*  :deep(.vxe-table colgroup col:last-child) {*/
-/*    width: auto !important;*/
-/*  }*/
+  :deep(.vxe-table colgroup col:last-child) {
+    width: auto !important;
+  }
 
-/*  :deep(.vxe-table .vxe-header--column:last-child),*/
-/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
-/*    width: 80px !important;*/
-/*    min-width: 80px !important;*/
-/*  }*/
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 80px !important;
+    min-width: 80px !important;
+  }
 
 
-/*  !* ✅ 手机端操作列内边距设为 0 *!*/
-/*  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {*/
-/*    padding: 0 !important;*/
-/*  }*/
+  /* ✅ 手机端操作列内边距设为 0 */
+  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {
+    padding: 0 !important;
+  }
 
-/*  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {*/
-/*    padding: 0 4px !important;*/
-/*  }*/
-/*}*/
+  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {
+    padding: 0 4px !important;
+  }
+}
 
-/*@media (min-width: 769px) {*/
-/*  :deep(.vxe-table colgroup col:last-child) {*/
-/*    width: 220px !important;*/
-/*  }*/
+@media (min-width: 769px) {
+  :deep(.vxe-table colgroup col:last-child) {
+    width: 220px !important;
+  }
 
-/*  :deep(.vxe-table .vxe-header--column:last-child),*/
-/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
-/*    width: 220px !important;*/
-/*  }*/
-/*}*/
+  :deep(.vxe-table .vxe-header--column:last-child),
+  :deep(.vxe-table .vxe-body--column:last-child) {
+    width: 220px !important;
+  }
+}
 </style>

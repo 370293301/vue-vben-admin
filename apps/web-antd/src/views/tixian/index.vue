@@ -122,12 +122,28 @@ async function onApply() {
     return;
   }
   const n = Number(form.amount);
-  if (!Number.isFinite(n) || n <= 0) return message.warning('提现金额需大于 0');
-  if (n > balance.value) return message.warning('提现金额不能超过余额');
 
+
+
+
+  if (!Number.isFinite(n) || n <= 0) return message.warning('提现金额需大于 0');
+
+
+  // 👇 新增：检查最小金额限制
+  if (n < 0.01) {
+    message.warning('提现金额不能小于 0.01');
+    return;
+  }
+  if (n > balance.value) return message.warning('提现金额不能超过余额');
+  // 👇 新增：判断是否为小数，只有小数才乘以100
+  let cashNumToSend = n;
+  if (n % 1 !== 0) {
+    // 是小数，乘以100
+    cashNumToSend = Math.round(n * 100);
+  }
   const hide = message.loading('提交中…', 0);
   try {
-    const res = await agentCash({ cashNum: n });
+    const res = await agentCash({ cashNum: cashNumToSend  });
     const d = res?.data ?? res ?? {};
     if (d.result === true || d.result === 1 || d.code === 0) {
       message.success(d.message || '提交成功');
@@ -232,7 +248,6 @@ function onSortChange(v: number) {
 .balance {
   font-size: 20px;
   font-weight: 700;
-  color: #222;
 }
 .balance .num {
   margin-left: 6px;

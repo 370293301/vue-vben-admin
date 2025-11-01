@@ -211,6 +211,7 @@ export function createTotalsThemeManager(opts: {
         case 'id':
         case 'pid':
         case 'uid':
+        case 'playerInfoNew':
         case 'createTime': {
           th.textContent = '合计';
           break;

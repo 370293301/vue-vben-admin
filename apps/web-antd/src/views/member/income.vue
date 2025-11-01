@@ -68,14 +68,18 @@ const rateModalLoading = ref(false);
 
 // ====== 列定义（收益维度） ======
 const columns: VxeGridProps<any>['columns'] = [
-  {  field: 'pid', title: '玩家id', slots: { default: 'cell-id' } },
-  { field: 'headUrl', title: '头像', slots: { default: 'avatar' },},
-  { field: 'level', title: '身份',  },
-  { field: 'name', title: '玩家名称',slots: { default: 'cell-name' } },
+
+  {
+    field: 'playerInfoNew',
+    title: '玩家',
+    width: 80,        // ✅ 固定宽度100px
+    minWidth: 80,     // ✅ 最小宽度100px
+    showOverflow: false, // ✅ 不截断内容
+    slots: { default: 'cell-player-info' }
+  },
   { field: 'contributions', title: '收益贡献',  },  // === MOD
   { field: 'revenueType', title: '收益类型', },    // === MOD
   { field: 'revenue', title: '我的收益', },        // === MOD
-  { field: 'markStr', title: '备注', },
   { field: 'fenCheng', title: '分成', },
   {
     field: 'action',
@@ -284,16 +288,41 @@ function confirmRate() {
         </div>
       </template>
       <template #toolbar-tools-after> </template>
-      <template #cell-id="{ row }">
-        <span :class="{ 'level-1': row.level === 1 }">{{ row.pid }}</span>
+
+      <!-- ✅ 新增：玩家信息插槽 -->
+      <!-- ✅ 修改：玩家信息插槽 - 垂直布局 -->
+      <template #cell-player-info="{ row }">
+        <div style="display: flex; flex-direction: column; gap: 0px; padding: 4px 0">
+          <!-- 头像 -->
+          <div>
+            <Image
+              :src="row.headUrl"
+              :width="40"
+              :height="40"
+            />
+          </div>
+
+          <!-- 玩家ID -->
+          <div>
+      <span :class="{ 'level-1': row.level === 1 }">
+        {{ row.id }}
+      </span>
+          </div>
+
+          <!-- 玩家名称 -->
+          <div>
+      <span :class="{ 'level-1': row.level === 1 }">
+        {{ row.name }}
+      </span>
+          </div>
+
+          <!-- 备注（如果有） -->
+          <div v-if="row.markStr" style="font-size: 12px; color: #999">
+            ({{ row.markStr }})
+          </div>
+        </div>
       </template>
 
-      <template #cell-name="{ row }">
-        <span :class="{ 'level-1': row.level === 1 }">{{ row.name }}</span>
-      </template>
-      <template #avatar="{ row }">
-        <Image :src="row.headUrl" :width="40" :height="40" />
-      </template>
 
       <template #action="{ row }">
         <MemberActions
@@ -339,40 +368,40 @@ function confirmRate() {
   font-size: 13px;
 }
 /* ✅ CSS 媒体查询 - 控制操作列宽度 */
-@media (max-width: 768px) {
-  :deep(.vxe-table) {
-    table-layout: auto !important;
-  }
+/*@media (max-width: 768px) {*/
+/*  :deep(.vxe-table) {*/
+/*    table-layout: auto !important;*/
+/*  }*/
 
-  :deep(.vxe-table colgroup col:last-child) {
-    width: auto !important;
-  }
+/*  :deep(.vxe-table colgroup col:last-child) {*/
+/*    width: auto !important;*/
+/*  }*/
 
-  :deep(.vxe-table .vxe-header--column:last-child),
-  :deep(.vxe-table .vxe-body--column:last-child) {
-    width: 80px !important;
-    min-width: 80px !important;
-  }
+/*  :deep(.vxe-table .vxe-header--column:last-child),*/
+/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
+/*    width: 80px !important;*/
+/*    min-width: 80px !important;*/
+/*  }*/
 
 
-  /* ✅ 手机端操作列内边距设为 0 */
-  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {
-    padding: 0 !important;
-  }
+/*  !* ✅ 手机端操作列内边距设为 0 *!*/
+/*  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {*/
+/*    padding: 0 !important;*/
+/*  }*/
 
-  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {
-    padding: 0 4px !important;
-  }
-}
+/*  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {*/
+/*    padding: 0 4px !important;*/
+/*  }*/
+/*}*/
 
-@media (min-width: 769px) {
-  :deep(.vxe-table colgroup col:last-child) {
-    width: 220px !important;
-  }
+/*@media (min-width: 769px) {*/
+/*  :deep(.vxe-table colgroup col:last-child) {*/
+/*    width: 220px !important;*/
+/*  }*/
 
-  :deep(.vxe-table .vxe-header--column:last-child),
-  :deep(.vxe-table .vxe-body--column:last-child) {
-    width: 220px !important;
-  }
-}
+/*  :deep(.vxe-table .vxe-header--column:last-child),*/
+/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
+/*    width: 220px !important;*/
+/*  }*/
+/*}*/
 </style>

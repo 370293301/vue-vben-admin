@@ -177,14 +177,14 @@ interface RowItem {
 }
 const columns: VxeGridProps<RowItem>['columns'] = [
 
-  {  field: 'pid', title: '玩家id', slots: { default: 'cell-id' } },
   {
-    field: 'headUrl',
-    title: '头像',
-    slots: { default: 'avatar' },
+    field: 'playerInfoNew',
+    title: '玩家',
+    width: 80,        // ✅ 固定宽度100px
+    minWidth: 80,     // ✅ 最小宽度100px
+    showOverflow: false, // ✅ 不截断内容
+    slots: { default: 'cell-player-info' }
   },
-  { field: 'level', title: '身份' },
-  { field: 'name', title: '玩家名称',slots: { default: 'cell-name' } },
   {
     field: 'setCount',
     title: '局数',
@@ -205,7 +205,6 @@ const columns: VxeGridProps<RowItem>['columns'] = [
     align: 'center',
     slots: { header: 'header-points', default: 'score' },
   },
-  { field: 'markStr', title: '备注标记' },
   { field: 'lowNum', title: '下级数量' },
   { field: 'fenCheng', title: '分成' },
 
@@ -519,16 +518,38 @@ function viewChildrenFromActions(row: RowItem) {
       </template>
 
       <template #toolbar-tools-after> </template>
-      <template #cell-id="{ row }">
-        <span :class="{ 'level-1': row.level === 1 }">{{ row.pid }}</span>
+      <template #cell-player-info="{ row }">
+        <div style="display: flex; flex-direction: column; gap: 0px; padding: 4px 0">
+          <!-- 头像 -->
+          <div>
+            <Image
+              :src="row.headUrl"
+              :width="40"
+              :height="40"
+            />
+          </div>
+
+          <!-- 玩家ID -->
+          <div>
+      <span :class="{ 'level-1': row.level === 1 }">
+        {{ row.id }}
+      </span>
+          </div>
+
+          <!-- 玩家名称 -->
+          <div>
+      <span :class="{ 'level-1': row.level === 1 }">
+        {{ row.name }}
+      </span>
+          </div>
+
+          <!-- 备注（如果有） -->
+          <div v-if="row.markStr" style="font-size: 12px; color: #999">
+            ({{ row.markStr }})
+          </div>
+        </div>
       </template>
 
-      <template #cell-name="{ row }">
-        <span :class="{ 'level-1': row.level === 1 }">{{ row.name }}</span>
-      </template>
-      <template #avatar="{ row }">
-        <Image :src="row.headUrl" :width="36" :height="36" />
-      </template>
 
       <template #score="{ row }">
         <a
@@ -697,41 +718,41 @@ function viewChildrenFromActions(row: RowItem) {
   white-space: normal !important;
 }
 /* ✅ CSS 媒体查询 - 控制操作列宽度 */
-@media (max-width: 768px) {
-  :deep(.vxe-table) {
-    table-layout: auto !important;
-  }
+/*@media (max-width: 768px) {*/
+/*  :deep(.vxe-table) {*/
+/*    table-layout: auto !important;*/
+/*  }*/
 
-  :deep(.vxe-table colgroup col:last-child) {
-    width: auto !important;
-  }
+/*  :deep(.vxe-table colgroup col:last-child) {*/
+/*    width: auto !important;*/
+/*  }*/
 
-  :deep(.vxe-table .vxe-header--column:last-child),
-  :deep(.vxe-table .vxe-body--column:last-child) {
-    width: 80px !important;
-    min-width: 80px !important;
-  }
+/*  :deep(.vxe-table .vxe-header--column:last-child),*/
+/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
+/*    width: 80px !important;*/
+/*    min-width: 80px !important;*/
+/*  }*/
 
 
-  /* ✅ 手机端操作列内边距设为 0 */
-  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {
-    padding: 0 !important;
-  }
+/*  !* ✅ 手机端操作列内边距设为 0 *!*/
+/*  :deep(.vxe-table .vxe-body--column:last-child .vxe-cell) {*/
+/*    padding: 0 !important;*/
+/*  }*/
 
-  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {
-    padding: 0 4px !important;
-  }
-}
+/*  :deep(.vxe-table .vxe-header--column:last-child .vxe-cell) {*/
+/*    padding: 0 4px !important;*/
+/*  }*/
+/*}*/
 
-@media (min-width: 769px) {
-  :deep(.vxe-table colgroup col:last-child) {
-    width: 220px !important;
-  }
+/*@media (min-width: 769px) {*/
+/*  :deep(.vxe-table colgroup col:last-child) {*/
+/*    width: 220px !important;*/
+/*  }*/
 
-  :deep(.vxe-table .vxe-header--column:last-child),
-  :deep(.vxe-table .vxe-body--column:last-child) {
-    width: 220px !important;
-  }
-}
+/*  :deep(.vxe-table .vxe-header--column:last-child),*/
+/*  :deep(.vxe-table .vxe-body--column:last-child) {*/
+/*    width: 220px !important;*/
+/*  }*/
+/*}*/
 /* 如果你之前写过把 header-top-cell 隐藏的规则（例如 @media (max-width:1000px) .header-top-cell {display:none}）请删除它 */
 </style>

@@ -59,6 +59,7 @@
     "test:e2e": "turbo run test:e2e",
     "update:deps": "npx taze -r -w",
     "version": "pnpm exec changeset version && pnpm install --no-frozen-lockfile",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts\\deploy-ssh.ps1",
     "catalog": "pnpx codemod pnpm/catalog"
   },
   "devDependencies": {
