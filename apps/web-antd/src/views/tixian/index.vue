@@ -41,7 +41,7 @@ type Row = {
   id: number | string;
   time: string;
   cashNum: number;
-  status: number; // 0审核中 1已通过 2拒绝
+  status: number;
   cashAccount: string;
 };
 const columns: VxeGridProps<Row>['columns'] = [
@@ -52,7 +52,7 @@ const columns: VxeGridProps<Row>['columns'] = [
     field: 'status',
     title: '状态',
     width: 120,
-    formatter: ({ cellValue }) => (['审核中', '已通过', '已拒绝'][Number(cellValue)] ?? cellValue),
+    formatter: ({ cellValue }) => (['审核中', '已通过','系统审核中','已驳回','线下申请'][Number(cellValue)] ?? cellValue),
   },
   { field: 'cashAccount', title: '收款账号', minWidth: 160 },
 ];
@@ -137,10 +137,11 @@ async function onApply() {
   if (n > balance.value) return message.warning('提现金额不能超过余额');
   // 👇 新增：判断是否为小数，只有小数才乘以100
   let cashNumToSend = n;
-  if (n % 1 !== 0) {
-    // 是小数，乘以100
-    cashNumToSend = Math.round(n * 100);
-  }
+  cashNumToSend = Math.round(n * 100);
+  // if (n % 1 !== 0) {
+  //   // 是小数，乘以100
+  //
+  // }
   const hide = message.loading('提交中…', 0);
   try {
     const res = await agentCash({ cashNum: cashNumToSend  });
@@ -203,21 +204,25 @@ function onSortChange(v: number) {
 
       <!-- 操作行：输入提现金额 + 申请 + 设置收款账号 -->
       <div class="actions">
-        <div class="label">输入提现金额：</div>
-        <InputNumber
-          v-model:value="form.amount"
-          :min="0"
-          :precision="2"
-          class="amount-input"
-          size="large"
-          placeholder="请输入整数/两位小数"
-        />
-        <Button type="primary" size="large" class="btn" @click="onApply">申 请</Button>
-        <Button size="large" class="btn" @click="openSetAccount">设置收款账号</Button>
+        <div class="amount-section">
+          <div class="label">输入提现金额：</div>
+          <InputNumber
+            v-model:value="form.amount"
+            :min="0"
+            :precision="2"
+            class="amount-input"
+            size="large"
+            placeholder="请输入整数/两位小数"
+          />
+          <Button type="primary" size="large" class="btn btn-apply" @click="onApply">申 请</Button>
+        </div>
 
-        <Select v-model:value="sortState.sortType" style="width: 140px; margin-left: 12px" @change="onSortChange">
-          <Select.Option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</Select.Option>
-        </Select>
+        <div class="button-section">
+          <Button size="large" class="btn btn-set-account" @click="openSetAccount">设置收款账号</Button>
+          <Select v-model:value="sortState.sortType" class="sort-select" @change="onSortChange">
+            <Select.Option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</Select.Option>
+          </Select>
+        </div>
       </div>
     </div>
 
@@ -258,18 +263,78 @@ function onSortChange(v: number) {
 }
 .actions {
   display: flex;
-  gap: 16px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
   padding: 16px 0 8px;
+}
+.amount-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.button-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 .actions .label {
   font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
 }
 .amount-input {
-  width: 240px;
+  flex: 1;
+  min-width: 0;
 }
 .btn {
   border-radius: 6px;
+  white-space: nowrap;
+}
+.btn-apply {
+  min-width: 100px;
+}
+.btn-set-account {
+  flex: 1;
+}
+.sort-select {
+  width: 140px;
+}
+
+/* 平板及以上屏幕：水平布局 */
+@media (min-width: 768px) {
+  .actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+  .amount-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .button-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
+  .amount-input {
+    width: 240px;
+    flex: none;
+  }
+  .btn-apply {
+    flex: none;
+  }
+  .btn-set-account {
+    flex: none;
+    width: auto;
+  }
+}
+
+/* 超大屏幕：可选调整 */
+@media (min-width: 1200px) {
+  .amount-input {
+    width: 280px;
+  }
 }
 </style>

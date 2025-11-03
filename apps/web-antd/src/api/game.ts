@@ -576,6 +576,9 @@ export async function agentReqPayBack(params: {
 export async function agentGameRoomInfo(opts: {
   startTime?: number;
   endTime?: number;
+  pagNum?: number | string;      // ✅ 新增
+  showNum?: number | string;     // ✅ 新增
+  gameType?: string | number;
   requestPid?: number | string;
 }) {
   const requestPid = Number(
@@ -595,6 +598,8 @@ export async function agentGameRoomInfo(opts: {
     startTime: opts.startTime ?? defaultStart,
     endTime: opts.endTime ?? defaultEnd,
     gameType: opts.gameType ?? '', // 默认空字符串表示全部游戏
+    pagNum: Number(opts.pagNum ?? 1),      // ✅ 新增
+    showNum: Number(opts.showNum ?? 10),   // ✅ 新增
   };
 
   console.log('[debug] agentGameRoomInfo body=', body, 'endpoint=', AGENT_GAME_ROOM_INFO_URL);
@@ -615,6 +620,8 @@ export async function agentGameRoomInfo(opts: {
 export async function agentPlayerBaseInfo(opts: {
   startTime?: number;
   endTime?: number;
+  pagNum?: number | string;      // ✅ 新增
+  showNum?: number | string;     // ✅ 新增
   requestPid?: number | string;
 }) {
   const requestPid = Number(
@@ -634,6 +641,8 @@ export async function agentPlayerBaseInfo(opts: {
 
   const body = {
     requestPid,
+    pagNum: Number(opts.pagNum ?? 1),      // ✅ 新增
+    showNum: Number(opts.showNum ?? 10),   // ✅ 新增
     startTime: opts.startTime ?? defaultStart,
     endTime: opts.endTime ?? defaultEnd,
   };

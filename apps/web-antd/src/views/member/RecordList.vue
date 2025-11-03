@@ -1,13 +1,12 @@
-<!-- RecordList.vue - 战绩记录页面 -->
+<!-- RecordList.vue - 战绩记录页面（卡片式布局） -->
 <script setup lang="ts">
 import { createVNode, nextTick, onBeforeUnmount, onMounted, reactive, ref, render, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { Button, DatePicker, message, Select, Table } from 'ant-design-vue';
+import { Button, DatePicker, message, Select, Pagination, Image } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import { agentReqPlayerGameRecord } from '#/api/game';
 import DetailModalContent from './DetailModalContent.vue';
 import gameTypeMap from '#/data/gametype.json';
-import { createTotalsThemeManager } from '#/utils/totalsThemeManager';
 
 const route = useRoute();
 const router = useRouter();
@@ -20,11 +19,7 @@ const stats = reactive({
   sumCost: 0,
 });
 
-// totals 表格的 DOM ref
-const totalsTableRef = ref<HTMLElement | null>(null);
-const vxeGridRef = ref<any>(null);
-
-// 生成下拉选项（Id -> value，Name_1 -> label）
+// 生成下拉选项
 function buildGameTypeOptions() {
   if (!gameTypeMap || typeof gameTypeMap !== 'object') {
     gameTypeOptions.value = [];
@@ -47,7 +42,6 @@ function getGameTypeName(gameTypeId: number | string): string {
     return String(gameTypeId);
   }
 
-  // 遍历 gameTypeMap 找对应的 Id
   for (const key in gameTypeMap) {
     const item: any = gameTypeMap[key];
     if (Number(item?.Id ?? item?.id) === id) {
@@ -91,9 +85,11 @@ const manualPid = ref('');
 
 const loading = ref(false);
 const records = ref<any[]>([]);
-const page = ref(1);
-const pageSize = ref(10);
-const totalPages = ref(1);
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+});
 
 // 筛选条件
 const filters = reactive({
@@ -101,21 +97,6 @@ const filters = reactive({
   specificDate: null as any,
   gameType: 0 as number,
 });
-
-// 表格列定义
-const columns = [
-  { title: '时间', dataIndex: 'createTime', key: 'createTime' },
-  { title: '房间号', dataIndex: 'roomKey', key: 'roomKey' },
-  { title: '局数', dataIndex: 'setCount', key: 'setCount' },
-  { title: '人数', dataIndex: 'playerNum', key: 'playerNum' },
-  { title: '游戏类型', dataIndex: 'gameType', key: 'gameType' },
-  { title: '得分', key: 'playerInfo' },
-  { title: '房费', dataIndex: 'roomSportsConsume', key: 'roomSportsConsume' },
-  { title: '操作', key: 'action' },
-];
-
-const rowKey = (record: any) =>
-  record?.roomId ?? record?.roomID ?? record?.roomKey ?? JSON.stringify(record);
 
 // 规范化后端返回数据
 function normalizeListFromResp(resp: any) {
@@ -139,7 +120,7 @@ async function loadList(p = 1) {
     const bodyOpts: any = {
       pid,
       pagNum: p,
-      showNum: pageSize.value,
+      showNum: pagination.pageSize,
       requestPid: Number(
         localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0,
       ),
@@ -159,13 +140,12 @@ async function loadList(p = 1) {
 
     const { list, total, payload } = normalizeListFromResp(resp);
 
-    // 从接口响应中获取合计数据
     stats.allPoints = Number(payload.allPoints ?? payload.totalPoints ?? payload.sumPoints ?? 0);
     stats.sumCost = Number(payload.sumCost ?? payload.totalCost ?? payload.totalRoomSportsConsume ?? 0);
 
     records.value = list;
-    totalPages.value = Number(total || 1);
-    page.value = p;
+    pagination.total = Number(total || 1) * pagination.pageSize;
+    pagination.current = p;
   } catch (err) {
     console.error('[RecordList] loadList error', err);
     message.error('加载战绩记录失败');
@@ -237,7 +217,7 @@ function applyManualPid() {
   loadList(1);
 }
 
-// 根据当前PID获取该玩家的得分
+// 获取当前玩家的得分
 function getPlayerPointByPid(record: any) {
   const pid = Number(targetPid.value || 0);
   if (!pid || !record.listInfo || !Array.isArray(record.listInfo)) {
@@ -255,17 +235,6 @@ function getPlayerPointByPid(record: any) {
 onMounted(() => {
   buildGameTypeOptions();
   if (targetPid.value) loadList(1);
-
-  // 初始化合计行主题管理
-  nextTick(() => {
-    const totalsManager = createTotalsThemeManager({
-      totalsTableRef,
-      vxeGridRef,
-      columns,
-      stats,
-    });
-    totalsManager.start();
-  });
 });
 </script>
 
@@ -286,10 +255,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div
-        v-if="manualInputVisible"
-        style="text-align: center; margin-top: 12px"
-      >
+      <div v-if="manualInputVisible" style="text-align: center; margin-top: 12px">
         <a-input
           v-model:value="manualPid"
           style="width: 220px; margin-right: 8px"
@@ -304,124 +270,124 @@ onMounted(() => {
 
     <!-- 有 PID 时显示查询和列表 -->
     <div v-else>
-      <!-- 筛选条件 -->
-      <div
-        style="
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          margin-bottom: 12px;
-        "
-      >
-        <div>
-          查询玩家 PID: <strong>{{ targetPid }}</strong>
+      <!-- 统计信息 -->
+      <div class="stats-row">
+        <div class="stat-item">
+          <span class="stat-label">总得分：</span>
+          <span class="stat-value">{{ stats.allPoints }}</span>
         </div>
-
-        <Select v-model:value="filters.timeType" style="width: 140px">
-          <Select.Option :value="0">今天</Select.Option>
-          <Select.Option :value="1">昨天</Select.Option>
-          <Select.Option :value="2">七天内</Select.Option>
-          <Select.Option :value="3">指定日期</Select.Option>
-        </Select>
-
-        <DatePicker
-          v-if="filters.timeType === 3"
-          v-model:value="filters.specificDate"
-          placeholder="选择日期"
-          style="width: 160px"
-        />
-
-        <Select v-model:value="filters.gameType" style="width: 220px" placeholder="选择游戏">
-          <Select.Option :value="0">全部游戏</Select.Option>
-          <Select.Option
-            v-for="opt in gameTypeOptions"
-            :key="opt.value"
-            :value="opt.value"
-          >
-            {{ opt.label }}
-          </Select.Option>
-        </Select>
-
-        <Button type="primary" @click="() => loadList(1)">查询</Button>
+        <div class="stat-item">
+          <span class="stat-label">总房费：</span>
+          <span class="stat-value">{{ stats.sumCost }}</span>
+        </div>
+        <div class="stat-item" style="margin-left: auto">
+          <span class="stat-label">玩家 PID：</span>
+          <span class="stat-value">{{ targetPid }}</span>
+        </div>
       </div>
 
-      <!-- 独立的合计表格（放在 Grid 上方） -->
-      <table
-        ref="totalsTableRef"
-        class="totals-only"
-        aria-hidden="true"
-        style="
-          display: none;
-          width: 100%;
-          margin-bottom: 8px;
-          table-layout: fixed;
-          border-collapse: collapse;
-        "
-      >
-        <colgroup>
-          <col v-for="col in columns" :key="col.key" />
-        </colgroup>
-        <thead>
-        <tr>
-          <th
-            v-for="col in columns"
-            :key="col.key"
-            style="
-                box-sizing: border-box;
-                min-height: 36px;
-                padding: 6px 8px;
-                font-weight: 600;
-                text-align: center;
-                white-space: nowrap;
-              "
-          >
-            <template v-if="col.key === 'createTime'">合计</template>
-            <template v-else-if="col.key === 'playerInfo'">
-              {{ stats.allPoints }}
-            </template>
-            <template v-else-if="col.key === 'roomSportsConsume'">
-              {{ stats.sumCost }}
-            </template>
-            <template v-else>&nbsp;</template>
-          </th>
-        </tr>
-        </thead>
-      </table>
+      <!-- 筛选条件 -->
+      <div class="toolbar">
+        <div class="toolbar-search">
+          <div class="search-row">
+            <Select v-model:value="filters.timeType" class="filter-select">
+              <Select.Option :value="0">今天</Select.Option>
+              <Select.Option :value="1">昨天</Select.Option>
+              <Select.Option :value="2">七天内</Select.Option>
+              <Select.Option :value="3">指定日期</Select.Option>
+            </Select>
 
-      <!-- 数据表格 -->
-      <Table
-        :dataSource="records"
-        :columns="columns"
-        :loading="loading"
-        :rowKey="rowKey"
-        :pagination="false"
-      >
-        <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'gameType'">
-            {{ getGameTypeName(record.gameType) }}
-          </template>
-          <template v-else-if="column.key === 'playerInfo'">
-            <div style="font-weight: 500; font-size: 16px">
-              {{ getPlayerPointByPid(record) }}
+            <DatePicker
+              v-if="filters.timeType === 3"
+              v-model:value="filters.specificDate"
+              placeholder="选择日期"
+              class="date-picker"
+            />
+
+            <Select v-model:value="filters.gameType" class="filter-select" placeholder="选择游戏">
+              <Select.Option :value="0">全部游戏</Select.Option>
+              <Select.Option
+                v-for="opt in gameTypeOptions"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                {{ opt.label }}
+              </Select.Option>
+            </Select>
+
+            <Button type="primary" @click="() => loadList(1)" class="search-btn">查询</Button>
+
+            <div class="button-group">
+              <Button size="small" @click="goBackToList">返回列表</Button>
             </div>
-          </template>
-          <template v-else-if="column.key === 'action'">
-            <a @click.prevent="() => openDetailForRoom(record)">查看明细</a>
-          </template>
-        </template>
-      </Table>
-
-      <!-- 分页控件 -->
-      <div style="display: flex; justify-content: center; margin-top: 12px">
-        <Button :disabled="page <= 1" @click="() => loadList(page - 1)">
-          上一页
-        </Button>
-        <div style="padding: 0 12px; line-height: 32px">
-          第 {{ page }} / {{ totalPages }} 页
+          </div>
         </div>
-        <Button :disabled="page >= totalPages" @click="() => loadList(page + 1)">
-          下一页
-        </Button>
+      </div>
+
+      <!-- 表格标题 + 表头 -->
+      <div class="table-header">
+        <div class="table-title">战绩记录</div>
+        <div class="table-columns">
+          <div class="col-time">时间</div>
+          <div class="col-room">房间号</div>
+          <div class="col-set">局数</div>
+          <div class="col-player">人数</div>
+          <div class="col-game">游戏类型</div>
+          <div class="col-score">得分</div>
+          <div class="col-cost">房费</div>
+          <div class="col-action">操作</div>
+        </div>
+      </div>
+
+      <!-- 列表 -->
+      <div v-if="loading" class="loading-state">加载中...</div>
+      <div v-else-if="records.length === 0" class="empty-state">暂无数据</div>
+      <div v-else class="record-list">
+        <div v-for="record in records" :key="record?.roomKey ?? JSON.stringify(record)" class="record-row">
+          <!-- 时间 -->
+          <div class="col-time">{{ record.createTime }}</div>
+
+          <!-- 房间号 -->
+          <div class="col-room">{{ record.roomKey }}</div>
+
+          <!-- 局数 -->
+          <div class="col-set">{{ record.setCount }}</div>
+
+          <!-- 人数 -->
+          <div class="col-player">{{ record.playerNum }}</div>
+
+          <!-- 游戏类型 -->
+          <div class="col-game">{{ getGameTypeName(record.gameType) }}</div>
+
+          <!-- 得分 -->
+          <div class="col-score">
+            <span class="score-value">{{ getPlayerPointByPid(record) }}</span>
+          </div>
+
+          <!-- 房费 -->
+          <div class="col-cost">{{ record.roomSportsConsume }}</div>
+
+          <!-- 操作 -->
+          <div class="col-action">
+            <a @click.prevent="() => openDetailForRoom(record)" class="action-link">查看明细</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分页 -->
+      <div class="pagination-wrapper">
+        <Pagination
+          v-model:current="pagination.current"
+          :total="pagination.total"
+          :page-size="pagination.pageSize"
+          :page-size-options="['10', '20', '50', '100']"
+          show-size-changer
+          @change="loadList"
+          @show-size-change="(_, size) => {
+            pagination.pageSize = size;
+            loadList(1);
+          }"
+        />
       </div>
     </div>
   </div>
@@ -434,13 +400,343 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-.totals-only th {
-  box-sizing: border-box;
-  padding: 6px 8px;
-  font-size: 13px;
+/* ===== 统计信息 ===== */
+.stats-row {
+  display: flex;
+  gap: 24px;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
-.totals-only {
-  background: var(--vben-header-bg, transparent);
+.stat-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.stat-label {
+  font-weight: 600;
+  color: #666;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #1890ff;
+  font-size: 16px;
+}
+
+/* ===== 工具栏 ===== */
+.toolbar {
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.toolbar-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-select {
+  width: 100px !important;
+}
+
+.date-picker {
+  width: 160px;
+}
+
+.search-btn {
+  min-width: 60px;
+  height: 32px;
+}
+
+.button-group {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ===== 表格 ===== */
+.table-header {
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.table-title {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table-columns {
+  display: flex;
+  gap: 0;
+  padding: 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.table-columns > div {
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.table-columns .col-time { flex: 0.6; }
+.table-columns .col-room { flex: 0.6; }
+.table-columns .col-set { flex: 0.6; }
+.table-columns .col-player { flex: 0.6; }
+.table-columns .col-game { flex: 0.6; }
+.table-columns .col-score { flex: 0.6; }
+.table-columns .col-cost { flex: 0.6; }
+.table-columns .col-action { flex: 0.6; }
+
+/* ===== 列表 ===== */
+.record-list {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.record-row {
+  display: flex;
+  gap: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
+.record-row:last-child {
+  border-bottom: none;
+}
+
+.record-row > div {
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  flex: 1;
+  min-width: 0;
+}
+
+.col-time {
+  font-size: 12px;
+  flex: 1.2;
+}
+
+.col-room,
+.col-game {
+  font-size: 12px;
+  flex: 0.8;
+}
+
+.col-set,
+.col-player,
+.col-score,
+.col-cost {
+  font-size: 12px;
+  flex: 0.6;
+  text-align: center;
+}
+
+.col-action {
+  flex: 0.7;
+  text-align: center;
+}
+
+.score-value {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1890ff;
+}
+
+.action-link {
+  color: #1890ff;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.action-link:hover {
+  color: #40a9ff;
+}
+
+/* ===== 加载和空状态 ===== */
+.loading-state,
+.empty-state {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+  border-radius: 4px;
+}
+
+/* ===== 分页 ===== */
+.pagination-wrapper {
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ===== 响应式布局 ===== */
+/* 小屏幕 (手机) */
+@media (max-width: 600px) {
+  .stats-row {
+    gap: 12px;
+    padding: 8px 12px;
+  }
+
+  .stat-item {
+    font-size: 12px;
+  }
+
+  .stat-value {
+    font-size: 14px;
+  }
+
+  .filter-select {
+    width: 80px !important;
+  }
+
+  .date-picker {
+    width: 140px;
+  }
+
+  .search-btn {
+    min-width: 50px;
+  }
+
+  .table-columns .col-time { flex: 0.5; }
+  .table-columns .col-room { flex: 0.5; }
+  .table-columns .col-set { flex: 0.5; }
+  .table-columns .col-player { flex: 0.5; }
+  .table-columns .col-game { flex: 0.5; }
+  .table-columns .col-score { flex: 0.5; }
+  .table-columns .col-cost { flex: 0.5; }
+  .table-columns .col-action { flex: 0.5; }
+
+  .col-time { font-size: 11px; flex: 1; }
+  .col-room,
+  .col-game { font-size: 11px; flex: 0.7; }
+  .col-set,
+  .col-player,
+  .col-score,
+  .col-cost { font-size: 10px; flex: 0.5; }
+  .col-action { font-size: 10px; flex: 0.6; }
+
+  .record-row > div {
+    padding: 0 4px;
+  }
+
+  .button-group {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* 中等屏幕 (平板 600-900px) */
+@media (min-width: 601px) and (max-width: 900px) {
+  .toolbar-search {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .search-row {
+    flex: 1;
+    min-width: 100%;
+  }
+
+  .filter-select {
+    width: 90px !important;
+  }
+
+  .date-picker {
+    width: 150px;
+  }
+
+  .table-columns .col-time { flex: 1.1; }
+  .table-columns .col-game { flex: 0.8; }
+
+  .col-time { font-size: 12px; flex: 1.1; }
+  .col-game { font-size: 12px; flex: 0.8; }
+}
+
+/* 大屏幕 (PC 901-1400px) */
+@media (min-width: 901px) and (max-width: 1400px) {
+  .toolbar-search {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .filter-select {
+    width: 100px !important;
+  }
+
+  .date-picker {
+    width: 160px;
+  }
+
+  .button-group {
+    margin-left: auto;
+  }
+}
+
+/* 超大屏幕 (PC 1400px+) */
+@media (min-width: 1401px) {
+  .toolbar-search {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .filter-select {
+    width: 110px !important;
+  }
+
+  .date-picker {
+    width: 180px;
+  }
+
+  .button-group {
+    margin-left: auto;
+  }
 }
 </style>

@@ -98,6 +98,8 @@ const gridOptions: VxeGridProps<Row> = {
             startTime,
             endTime,
             gameType,
+            pagNum: page.currentPage,      // ✅ 新增
+            showNum: page.pageSize,        // ✅ 新增
           });
 
           const actualData = resp.data;
@@ -242,7 +244,19 @@ const gridOptions: VxeGridProps<Row> = {
               );
             }
           }
-
+          // ✅ 修改这里：优先使用 totalCount
+          let total = 0;
+          if (typeof data.totalCount === 'number') {
+            total = data.totalCount;      // ✅ 新增：优先使用 totalCount
+          } else if (typeof data.total === 'number') {
+            total = data.total;
+          } else if (data.totalPages === 1) {
+            total = rows.length;
+          } else if (typeof data.totalPages === 'number' && data.totalPages > 1) {
+            total = data.totalPages * page.pageSize;
+          } else {
+            total = rows.length;
+          }
           // 返回表格数据
           return {
             items: rows,

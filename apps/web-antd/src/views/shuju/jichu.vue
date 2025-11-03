@@ -234,6 +234,8 @@ const gridOptions: VxeGridProps<Row> = {
           // 调用接口
           const resp = await agentPlayerBaseInfo({
             requestPid: AGENT_PID,
+            pagNum: page.currentPage,      // ✅ 新增
+            showNum: page.pageSize,        // ✅ 新增
             startTime,
             endTime,
           });
@@ -324,10 +326,17 @@ const gridOptions: VxeGridProps<Row> = {
           });
 
           console.log('[proxyConfig.query] 表格数据行数:', rows.length);
-
+          let total = 0;
+          if (typeof data.totalCount === 'number') {
+            total = data.totalCount;      // ✅ 新增：优先使用 totalCount
+          } else if (typeof data.total === 'number') {
+            total = data.total;
+          } else {
+            total = rows.length;          // 降级方案
+          }
           return {
             items: rows,
-            total: rows.length,
+            total,
           };
         } catch (error) {
           console.error('[proxyConfig.query] 错误:', error);
@@ -397,7 +406,6 @@ onMounted(() => {
 <style scoped>
 .panel {
   padding: 8px 12px 16px;
-  background: #fff;
 }
 
 .toolbar {
@@ -412,6 +420,5 @@ onMounted(() => {
   width: 100%;
   height: 360px;
   margin-bottom: 12px;
-  background: #fff;
 }
 </style>
