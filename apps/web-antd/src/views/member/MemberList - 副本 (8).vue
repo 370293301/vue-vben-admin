@@ -108,11 +108,6 @@ async function loadPlayers(page: number = 1) {
     stats.totalCount = total;
     pagination.total = total;
     pagination.current = page;
-    // ✅ 新增：检查是否只有一个玩家且pid等于当前targetPid
-    const isSelfOnly =
-      Array.isArray(rawList) &&
-      rawList.length === 1 &&
-      Number(rawList[0]?.pid ?? rawList[0]?.id ?? 0) === currentTargetPid.value;
 
     const list = (rawList as any[]).map((it) => {
       const pid = Number(it.pid ?? it.id ?? 0);
@@ -133,7 +128,6 @@ async function loadPlayers(page: number = 1) {
         fenCheng: it.fenCheng != null ? it.fenCheng + '%' : '',
         _raw: { ...it, pid, isBanned },
         isBanned,
-        canViewChildren: !isSelfOnly, // ✅ 禁用标志：true 表示可以查看，false 表示不能查看
       };
     });
 

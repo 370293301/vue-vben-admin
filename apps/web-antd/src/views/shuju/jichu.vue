@@ -1,13 +1,11 @@
 <script lang="ts" setup>
 import type { Dayjs } from 'dayjs';
-import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { onMounted, reactive, ref } from 'vue';
 import { Page } from '@vben/common-ui';
-import { Button, DatePicker, message, Tag } from 'ant-design-vue';
+import { Button, DatePicker, message, Tag, Table } from 'ant-design-vue';
 import dayjs from 'dayjs';
 import * as echarts from 'echarts';
-import { useVbenVxeGrid } from '#/adapter/vxe-table';
 
 // 导入接口
 import { agentPlayerBaseInfo } from '#/api/game';
@@ -41,56 +39,55 @@ function renderChart(dailyStats: DailyPlayerStat[]) {
   }
   if (!chart) return;
 
+  // ✅ 按日期正序排列
+  const sortedStats = [...dailyStats].sort((a, b) => {
+    const dateA = a.date || '';
+    const dateB = b.date || '';
+    return dateA.localeCompare(dateB);
+  });
+
   // X轴：日期
-  const dates = dailyStats.map((item) => formatDate(item.date));
+  const dates = sortedStats.map((item) => formatDate(item.date));
 
   // 定义所有可能的指标
   const allMetrics = [
     {
       name: '日活跃用户',
-      data: dailyStats.map((item) => item.dailyActiveUserCount || 0),
+      data: sortedStats.map((item) => item.dailyActiveUserCount || 0),
     },
     {
       name: '新注册用户',
-      data: dailyStats.map((item) => item.newRegUserCount || 0),
+      data: sortedStats.map((item) => item.newRegUserCount || 0),
     },
     {
       name: '开房次数',
-      data: dailyStats.map((item) => item.roomCount || 0),
+      data: sortedStats.map((item) => item.roomCount || 0),
     },
     {
       name: '游戏总局数',
-      data: dailyStats.map((item) => item.totalGameSetCount || 0),
+      data: sortedStats.map((item) => item.totalGameSetCount || 0),
     },
     {
       name: '老玩家登录人数',
-      data: dailyStats.map((item) => item.oldPlayerLoginCount || 0),
+      data: sortedStats.map((item) => item.oldPlayerLoginCount || 0),
     },
     {
       name: '次日留存',
-      data: dailyStats.map((item) => item.nextDayRetention || 0),
+      data: sortedStats.map((item) => item.nextDayRetention || 0),
     },
     {
       name: '7日留存',
-      data: dailyStats.map((item) => item.sevenDayRetention || 0),
+      data: sortedStats.map((item) => item.sevenDayRetention || 0),
     },
     {
       name: '30日留存',
-      data: dailyStats.map((item) => item.thirtyDayRetention || 0),
+      data: sortedStats.map((item) => item.thirtyDayRetention || 0),
     },
     {
       name: '总成员数',
-      data: dailyStats.map((item) => item.totalMemberCount || 0),
+      data: sortedStats.map((item) => item.totalMemberCount || 0),
     },
   ];
-
-  // 打印每个指标的数据用于调试
-  console.log('[renderChart] 所有指标数据:');
-  allMetrics.forEach((metric) => {
-    const sum = metric.data.reduce((a, b) => a + b, 0);
-    const hasValue = metric.data.some((val) => val > 0);
-    console.log(`  ${metric.name}:`, metric.data, `总和=${sum}, 有值=${hasValue}`);
-  });
 
   // 过滤出有数据的指标（至少有一个非0值）
   const validMetrics = allMetrics.filter((metric) => {
@@ -98,7 +95,6 @@ function renderChart(dailyStats: DailyPlayerStat[]) {
   });
 
   console.log('[renderChart] 有效指标数量:', validMetrics.length);
-  console.log('[renderChart] 有效指标:', validMetrics.map((m) => m.name));
 
   // 如果没有有效指标，清空图表
   if (validMetrics.length === 0) {
@@ -114,7 +110,7 @@ function renderChart(dailyStats: DailyPlayerStat[]) {
     return;
   }
 
-  // 构建系列（只包含有数据的指标）
+  // 构建系列
   const series = validMetrics.map((metric) => ({
     name: metric.name,
     type: 'line',
@@ -134,14 +130,14 @@ function renderChart(dailyStats: DailyPlayerStat[]) {
       },
       legend: {
         type: 'scroll',
-        orient: 'vertical',  // ✅ 纵向排列
+        orient: 'vertical',
         right: 10,
-        top: 'center',       // 居中对齐
+        top: 'center',
         data: validMetrics.map((m) => m.name),
       },
       grid: {
         left: 60,
-        right: 150,  // 增加右侧空间，给图例留位置
+        right: 150,
         top: 40,
         bottom: 40,
       },
@@ -175,6 +171,7 @@ function formatDate(dateStr: string): string {
 
 /** ======= 表格 ======= */
 type Row = {
+  key: string;
   date: string;
   新注册用户: number;
   新试玩用户: number;
@@ -188,176 +185,192 @@ type Row = {
   总成员数: number;
 };
 
-const columns: VxeGridProps<Row>['columns'] = [
-  { field: 'date', title: '日期', width: 120, fixed: 'left' },
-  { field: '新注册用户', title: '新注册用户', width: 110 },
-  { field: '新试玩用户', title: '新试玩用户', width: 110 },
-  { field: '日活跃用户', title: '日活跃用户', width: 110 },
-  { field: '老玩家登陆人数', title: '老玩家登陆人数', width: 130 },
-  { field: '次日留存用户', title: '次日留存用户', width: 110 },
-  { field: '7日留存用户', title: '7日留存用户', width: 110 },
-  { field: '30日留存用户', title: '30日留存用户', width: 120 },
-  { field: '开房次数', title: '开房次数', width: 100 },
-  { field: '游戏总局数', title: '游戏总局数', width: 110 },
-  { field: '总成员数', title: '总成员数', width: 110 },
+// ✅ Ant Design Table 列定义
+const columns = [
+  { title: '日期', dataIndex: 'date', key: 'date', width: 120, fixed: 'left' as const },
+  { title: '新注册用户', dataIndex: '新注册用户', key: '新注册用户', width: 100 },
+  { title: '新试玩用户', dataIndex: '新试玩用户', key: '新试玩用户', width: 100 },
+  { title: '日活跃用户', dataIndex: '日活跃用户', key: '日活跃用户', width: 100 },
+  { title: '老玩家登陆人数', dataIndex: '老玩家登陆人数', key: '老玩家登陆人数', width: 130 },
+  { title: '次日留存用户', dataIndex: '次日留存用户', key: '次日留存用户', width: 110 },
+  { title: '7日留存用户', dataIndex: '7日留存用户', key: '7日留存用户', width: 110 },
+  { title: '30日留存用户', dataIndex: '30日留存用户', key: '30日留存用户', width: 120 },
+  { title: '开房次数', dataIndex: '开房次数', key: '开房次数', width: 100 },
+  { title: '游戏总局数', dataIndex: '游戏总局数', key: '游戏总局数', width: 110 },
+  { title: '总成员数', dataIndex: '总成员数', key: '总成员数', width: 100 },
 ];
 
-const gridOptions: VxeGridProps<Row> = {
-  columns,
-  height: 380,
-  border: true,
-  stripe: true,
-  pagerConfig: { currentPage: 1, pageSize: 10, pageSizes: [10, 20, 50] },
-  toolbarConfig: { custom: true, export: false, refresh: false, zoom: false },
-  proxyConfig: {
-    ajax: {
-      query: async ({ page }) => {
-        console.log('[proxyConfig.query] 开始查询');
+// ✅ 所有表格数据
+const allTableData = ref<Row[]>([]);
 
-        // 检查日期范围
-        if (!Array.isArray(filters.dates) || filters.dates.length !== 2) {
-          message.info('请选择日期范围');
-          return { items: [], total: 0 };
-        }
+// ✅ 分页管理
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0,
+  pageSizeOptions: ['10', '20', '50'],
+});
 
-        const [startD, endD] = filters.dates as [Dayjs, Dayjs];
-        const startTime = startD.startOf('day').valueOf(); // 毫秒时间戳
-        const endTime = endD.endOf('day').valueOf();
+// ✅ 计算当前页数据
+function getPaginatedData(): Row[] {
+  try {
+    const start = (pagination.current - 1) * pagination.pageSize;
+    const end = start + pagination.pageSize;
 
-        console.log('[proxyConfig.query] 查询参数:', {
-          requestPid: AGENT_PID,
-          startTime,
-          endTime,
-        });
+    if (!Array.isArray(allTableData.value)) {
+      console.warn('[getPaginatedData] allTableData 不是数组');
+      return [];
+    }
 
-        try {
-          // 调用接口
-          const resp = await agentPlayerBaseInfo({
-            requestPid: AGENT_PID,
-            pagNum: page.currentPage,      // ✅ 新增
-            showNum: page.pageSize,        // ✅ 新增
-            startTime,
-            endTime,
-          });
-
-          console.log('[proxyConfig.query] 接口响应:', resp);
-
-          // 处理双层 data 结构：resp.data.data
-          const actualData = resp?.data;
-          console.log('[proxyConfig.query] actualData:', actualData);
-
-          // 判断响应码
-          const responseCode = actualData?.code ?? 0;
-          if (responseCode !== 0 && responseCode !== undefined) {
-            const errorMsg = actualData?.msg || '获取数据失败';
-            message.error(errorMsg);
-            return { items: [], total: 0 };
-          }
-
-          // 获取实际数据（第二层 data）
-          const data = actualData?.data;
-          console.log('[proxyConfig.query] data:', data);
-
-          if (!data) {
-            message.warning('返回数据为空');
-            return { items: [], total: 0 };
-          }
-
-          // 更新统计信息
-          stats.startDate = data.startDate || '';
-          stats.endDate = data.endDate || '';
-          stats.totalDays = data.totalDays || 0;
-
-          const dailyStats = data.dailyStats || [];
-          console.log('[proxyConfig.query] dailyStats 长度:', dailyStats.length);
-
-          // 如果没有数据，清空图表
-          if (dailyStats.length === 0) {
-            message.info('该时间段内没有数据');
-            if (chart) {
-              chart.setOption(
-                {
-                  tooltip: { trigger: 'axis' },
-                  legend: { data: [], top: 10, type: 'scroll' },
-                  grid: { left: 60, right: 40, top: 60, bottom: 40 },
-                  xAxis: {
-                    type: 'category',
-                    data: [],
-                    boundaryGap: false,
-                  },
-                  yAxis: {
-                    type: 'value',
-                    name: '数量',
-                  },
-                  series: [],
-                },
-                {
-                  notMerge: true,
-                  replaceMerge: ['series'],
-                },
-              );
-            }
-            return { items: [], total: 0 };
-          }
-
-          // 渲染图表
-          renderChart(dailyStats);
-
-          // 构建表格数据
-          const rows: Row[] = dailyStats.map((item: DailyPlayerStat) => {
-            // 计算新试玩用户数（新注册用户 × 试玩比例）
-            const newTrialCount = Math.round(
-              (item.newRegUserCount || 0) * (item.trialPlayRatio || 0),
-            );
-
-            return {
-              date: formatDate(item.date || ''),
-              新注册用户: item.newRegUserCount || 0,
-              新试玩用户: newTrialCount,
-              日活跃用户: item.dailyActiveUserCount || 0,
-              老玩家登陆人数: item.oldPlayerLoginCount || 0,
-              次日留存用户: item.nextDayRetention || 0,
-              '7日留存用户': item.sevenDayRetention || 0,
-              '30日留存用户': item.thirtyDayRetention || 0,
-              开房次数: item.roomCount || 0,
-              游戏总局数: item.totalGameSetCount || 0,
-              总成员数: item.totalMemberCount || 0,
-            };
-          });
-
-          console.log('[proxyConfig.query] 表格数据行数:', rows.length);
-          let total = 0;
-          if (typeof data.totalCount === 'number') {
-            total = data.totalCount;      // ✅ 新增：优先使用 totalCount
-          } else if (typeof data.total === 'number') {
-            total = data.total;
-          } else {
-            total = rows.length;          // 降级方案
-          }
-          return {
-            items: rows,
-            total,
-          };
-        } catch (error) {
-          console.error('[proxyConfig.query] 错误:', error);
-          message.error('请求失败，请稍后重试');
-          return { items: [], total: 0 };
-        }
-      },
-    },
-  },
-};
-
-const [Grid, gridApi] = useVbenVxeGrid<Row>({ gridOptions });
+    return allTableData.value.slice(start, end);
+  } catch (error) {
+    console.error('[getPaginatedData] 错误:', error);
+    return [];
+  }
+}
 
 /** ======= 查询动作 ======= */
-function runQuery() {
+async function runQuery() {
   if (!Array.isArray(filters.dates) || filters.dates.length !== 2) {
     message.info('请选择日期范围');
     return;
   }
-  console.log('[runQuery] 触发查询');
-  gridApi.query();
+
+  console.log('[runQuery] 开始查询');
+
+  const [startD, endD] = filters.dates as [Dayjs, Dayjs];
+  const startTime = startD.startOf('day').valueOf();
+  const endTime = endD.endOf('day').valueOf();
+
+  console.log('[runQuery] 查询参数:', {
+    requestPid: AGENT_PID,
+    startTime,
+    endTime,
+  });
+
+  try {
+    // ✅ 删除 pagNum 和 showNum 参数
+    const resp = await agentPlayerBaseInfo({
+      requestPid: AGENT_PID,
+      startTime,
+      endTime,
+    });
+
+    console.log('[runQuery] 接口响应:', resp);
+
+    const actualData = resp?.data;
+    console.log('[runQuery] actualData:', actualData);
+
+    // 判断响应码
+    const responseCode = actualData?.code ?? 0;
+    if (responseCode !== 0 && responseCode !== undefined) {
+      const errorMsg = actualData?.msg || '获取数据失败';
+      message.error(errorMsg);
+      return;
+    }
+
+    // 获取实际数据（第二层 data）
+    const data = actualData?.data;
+    console.log('[runQuery] data:', data);
+
+    if (!data) {
+      message.warning('返回数据为空');
+      return;
+    }
+
+    // 更新统计信息
+    stats.startDate = data.startDate || '';
+    stats.endDate = data.endDate || '';
+    stats.totalDays = data.totalDays || 0;
+
+    let dailyStats: DailyPlayerStat[] = data.dailyStats || [];
+    console.log('[runQuery] dailyStats 长度:', dailyStats.length);
+
+    if (dailyStats.length === 0) {
+      message.info('该时间段内没有数据');
+      if (chart) {
+        chart.setOption(
+          {
+            tooltip: { trigger: 'axis' },
+            legend: { data: [], top: 10, type: 'scroll' },
+            grid: { left: 60, right: 40, top: 60, bottom: 40 },
+            xAxis: {
+              type: 'category',
+              data: [],
+              boundaryGap: false,
+            },
+            yAxis: {
+              type: 'value',
+              name: '数量',
+            },
+            series: [],
+          },
+          {
+            notMerge: true,
+            replaceMerge: ['series'],
+          },
+        );
+      }
+      allTableData.value = [];
+      pagination.total = 0;
+      pagination.current = 1;
+      return;
+    }
+
+    // ✅ 按日期正序排列数据用于图表
+    const sortedStatsForChart = [...dailyStats].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      return dateA.localeCompare(dateB);  // 正序
+    });
+
+    // 渲染图表（使用正序数据）
+    renderChart(sortedStatsForChart);
+
+    // ✅ 按日期倒序排列数据用于表格（最新在前）
+    const sortedStatsForTable = [...dailyStats].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      return dateB.localeCompare(dateA);  // 倒序
+    });
+
+    // 构建表格数据（使用倒序数据）
+    const rows: Row[] = sortedStatsForTable.map((item: DailyPlayerStat, index: number) => {
+      // 计算新试玩用户数（新注册用户 × 试玩比例）
+      const newTrialCount = Math.round(
+        (item.newRegUserCount || 0) * (item.trialPlayRatio || 0),
+      );
+
+      return {
+        key: `${item.date}-${index}`,
+        date: formatDate(item.date || ''),
+        新注册用户: item.newRegUserCount || 0,
+        新试玩用户: newTrialCount,
+        日活跃用户: item.dailyActiveUserCount || 0,
+        老玩家登陆人数: item.oldPlayerLoginCount || 0,
+        次日留存用户: item.nextDayRetention || 0,
+        '7日留存用户': item.sevenDayRetention || 0,
+        '30日留存用户': item.thirtyDayRetention || 0,
+        开房次数: item.roomCount || 0,
+        游戏总局数: item.totalGameSetCount || 0,
+        总成员数: item.totalMemberCount || 0,
+      };
+    });
+
+    console.log('[runQuery] 表格数据行数:', rows.length);
+    console.log('[runQuery] 第一行数据:', rows[0]);
+
+    // ✅ 更新表格数据和分页信息
+    allTableData.value = rows;
+    pagination.total = rows.length;
+    pagination.current = 1;
+
+    console.log('[runQuery] 查询完成，allTableData 长度:', allTableData.value.length);
+
+  } catch (error) {
+    console.error('[runQuery] 错误:', error);
+    message.error('请求失败，请稍后重试');
+  }
 }
 
 /** ======= 初始化 ======= */
@@ -397,8 +410,30 @@ onMounted(() => {
       <!-- 图表 -->
       <div ref="chartRef" class="chart"></div>
 
-      <!-- 表格 -->
-      <Grid table-title="玩家基础信息统计" />
+      <!-- ✅ 使用 Ant Design Table 代替 VxeGrid -->
+      <div class="table-wrapper">
+        <h3>玩家基础信息统计</h3>
+        <Table
+          :columns="columns"
+          :data-source="getPaginatedData()"
+          :pagination="{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            pageSizeOptions: pagination.pageSizeOptions,
+            showSizeChanger: true,
+            showTotal: (total) => `共 ${total} 条记录`,
+          }"
+          :loading="false"
+          :bordered="true"
+          :size="'middle'"
+          :scroll="{ x: 1200 }"
+          @change="(pag: any) => {
+            pagination.current = pag.current;
+            pagination.pageSize = pag.pageSize;
+          }"
+        />
+      </div>
     </div>
   </Page>
 </template>
@@ -420,5 +455,15 @@ onMounted(() => {
   width: 100%;
   height: 360px;
   margin-bottom: 12px;
+}
+
+.table-wrapper {
+  margin-top: 12px;
+}
+
+.table-wrapper h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
 }
 </style>

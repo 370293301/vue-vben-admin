@@ -23,6 +23,7 @@ type RowLike = {
   [k: string]: any;
   _raw?: Record<string, any>;
   isBanned?: boolean;
+  canViewChildren?: boolean; // ✅ 新增：是否可查看下级
   // 其他你需要的字段
   pid?: number;
   rate?: number;
@@ -70,6 +71,7 @@ const menuItems = computed(() => {
     items.push({
       key: 'view-children',
       label: '查看下级',
+      disabled: props.row.canViewChildren === false, // ✅ 如果 canViewChildren 为 false，则禁用
     });
   }
 
@@ -143,6 +145,11 @@ function isPromoter() {
 /* ---------- 操作实现 ---------- */
 
 async function onViewChildren() {
+  // ✅ 检查是否可以查看下级
+  if (props.row.canViewChildren === false) {
+    message.warning('该玩家暂无下级');
+    return;
+  }
   emit('view-children', props.row);
 }
 

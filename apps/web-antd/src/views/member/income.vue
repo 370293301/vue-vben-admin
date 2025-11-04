@@ -102,7 +102,11 @@ async function loadRevenue(page: number = 1) {
     } else {
       total = Array.isArray(rawList) ? rawList.length : 0;
     }
-
+    // ✅ 新增：检查是否只有一个玩家且pid等于当前targetPid
+    const isSelfOnly =
+      Array.isArray(rawList) &&
+      rawList.length === 1 &&
+      Number(rawList[0]?.pid ?? rawList[0]?.id ?? 0) === currentTargetPid.value;
     const list = (Array.isArray(rawList) ? rawList : []).map((it: any) => {
       const pid = Number(it.pid ?? it.id ?? 0);
       const rawRevenueType = it.revenueType ?? it.revenue_type ?? it.revenueTypeVal ?? it.type ?? '';
@@ -119,6 +123,7 @@ async function loadRevenue(page: number = 1) {
         markStr: it.markStr ?? '',
         fenCheng: it.fenCheng != null ? it.fenCheng + '%' : '',
         _raw: { ...it, pid },
+        canViewChildren: !isSelfOnly, // ✅ 禁用标志：true 表示可以查看，false 表示不能查看
       };
     });
 
