@@ -544,9 +544,9 @@ onBeforeUnmount(() => {
     <Button v-if="isPromoter() && !isSelfAgent()" size="small" @click="openRateModal">
       调整充值分成比例
     </Button>
-    <Button size="small" type="primary" :loading="rechargeLoading" @click="openRechargeModal">
-      充值测试
-    </Button>
+<!--    <Button size="small" type="primary" :loading="rechargeLoading" @click="openRechargeModal">-->
+<!--      充值测试-->
+<!--    </Button>-->
   </div>
 
   <!-- ... Modal 部分保持不变 ... -->

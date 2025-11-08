@@ -111,14 +111,13 @@ async function loadRevenue(page: number = 1) {
       const pid = Number(it.pid ?? it.id ?? 0);
       const rawRevenueType = it.revenueType ?? it.revenue_type ?? it.revenueTypeVal ?? it.type ?? '';
       const numericType = isNaN(Number(rawRevenueType)) ? rawRevenueType : Number(rawRevenueType);
-
+      // revenueType: revenueTypeMap[numericType as any] ?? String(rawRevenueType ?? ''),
       return {
         pid,
         headUrl: it.headUrl ?? it.avatar ?? it.headImageUrl ?? '',
         level: it.level ?? it.identity ?? 0,
         name: it.name ?? it.nickname ?? '',
         contributions: Number(it.contributions ?? it.contribution ?? 0),
-        revenueType: revenueTypeMap[numericType as any] ?? String(rawRevenueType ?? ''),
         revenue: Number(it.revenue ?? it.myRevenue ?? it.revenueValue ?? 0),
         markStr: it.markStr ?? '',
         fenCheng: it.fenCheng != null ? it.fenCheng + '%' : '',
@@ -256,7 +255,7 @@ loadRevenue(1);
       <div class="table-columns">
         <div class="col-player">玩家</div>
         <div class="col-contributions">贡献</div>
-        <div class="col-type">类型</div>
+<!--        <div class="col-type">类型</div>-->
         <div class="col-revenue">我的收益</div>
         <div class="col-fencheng">分成</div>
         <div class="col-action">操作</div>
@@ -295,7 +294,7 @@ loadRevenue(1);
         <div class="col-contributions">{{ row.contributions }}</div>
 
         <!-- 类型 -->
-        <div class="col-type">{{ row.revenueType }}</div>
+<!--        <div class="col-type">{{ row.revenueType }}</div>-->
 
         <!-- 我的收益 -->
         <div class="col-revenue">{{ row.revenue }}</div>

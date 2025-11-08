@@ -33,8 +33,8 @@ const formSchema = computed<VbenFormSchema[]>(() => [
     rules: z
       .string()
       .min(1, { message: $t('authentication.usernameTip') })
-      .optional()
-      .default('13262603720'),
+      .optional(),
+
   },
   {
     component: 'VbenInputPassword',
@@ -44,8 +44,8 @@ const formSchema = computed<VbenFormSchema[]>(() => [
     rules: z
       .string()
       .min(1, { message: $t('authentication.passwordTip') })
-      .optional()
-      .default('z5116257'),
+      .optional(),
+
   },
   // {
   //   component: markRaw(SliderCaptcha),
