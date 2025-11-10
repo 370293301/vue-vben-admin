@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { Modal, Input, InputNumber, message, Dropdown, Menu, Button } from 'ant-design-vue';
+import type { CompetitionMember } from '#/api/competition';
+import { apiBanGame, apiSetRemark } from '#/api/member';
 
 // --- 响应式判断是否为手机 / 窄屏 ---
 const mobileBreakpoint = 768;
@@ -11,39 +13,50 @@ function updateIsMobile() {
 }
 
 const props = defineProps<{
-  row: any;
+  row: CompetitionMember;
+  visibleActions?: {
+    scoreManage: boolean;
+    setRemark: boolean;
+    kickOut: boolean;
+    freeze: boolean;
+  };
 }>();
 
 const emit = defineEmits<{
   (e: 'rowUpdated'): void;
 }>();
 
-// loading flags
+// 默认显示所有按钮（后备方案）
+const defaultVisibleActions = {
+  scoreManage: true,
+  setRemark: true,
+  kickOut: true,
+  freeze: true,
+};
+
+const visibleActions = computed(() => {
+  return props.visibleActions || defaultVisibleActions;
+});
+
+// Loading flags
 const scoreLoading = ref(false);
 const remarkLoading = ref(false);
 const kickOutLoading = ref(false);
 const freezeLoading = ref(false);
-const promoterLoading = ref(false);
-const managerLoading = ref(false);
 
-// 计算菜单项（用于手机端下拉菜单）
-const menuItems = computed(() => {
-  return [
-    { key: 'score-manage', label: '分数管理', loading: scoreLoading.value },
-    { key: 'set-remark', label: '设置备注', loading: remarkLoading.value },
-    { key: 'kick-out', label: '踢出', danger: true, loading: kickOutLoading.value },
-    {
-      key: 'freeze-toggle',
-      label: props.row.frozen ? '解冻' : '冻结',
-      danger: !props.row.frozen,
-      loading: freezeLoading.value
-    },
-    { key: 'set-promoter', label: '设置推广员', loading: promoterLoading.value },
-    { key: 'set-manager', label: '设置赛事管理', loading: managerLoading.value },
-  ];
+// 是否被冻结
+const isFrozen = ref(false);
+
+onMounted(() => {
+  window.addEventListener('resize', updateIsMobile);
+  updateIsMobile();
 });
 
-// 分数管理弹窗
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateIsMobile);
+});
+
+// ===== 分数管理弹窗 =====
 const scoreModalVisible = ref(false);
 const scoreForm = ref({
   score: 0,
@@ -66,12 +79,13 @@ async function handleScoreSubmit() {
   if (scoreLoading.value) return;
   scoreLoading.value = true;
   try {
-    // 调用API
-    // await updateMemberScore({
-    //   memberId: props.row.id,
+    // TODO: 调用分数管理 API
+    // await apiUpdateMemberScore({
+    //   pid: props.row.pid,
     //   score: scoreForm.value.score,
     //   reason: scoreForm.value.reason,
     // });
+    console.log('分数提交:', scoreForm.value);
     message.success('分数修改成功');
     scoreModalVisible.value = false;
     emit('rowUpdated');
@@ -82,12 +96,12 @@ async function handleScoreSubmit() {
   }
 }
 
-// 设置备注
+// ===== 设置备注 =====
 async function onSetRemark() {
   if (remarkLoading.value) return;
   remarkLoading.value = true;
   try {
-    const current = props.row.markStr ?? '';
+    const current = props.row.name ?? '';
     const remark = window.prompt('请输入备注内容：', String(current));
     if (remark === null) {
       remarkLoading.value = false;
@@ -99,11 +113,15 @@ async function onSetRemark() {
       remarkLoading.value = false;
       return;
     }
-    // 调用API
-    // await updateMemberRemark({
-    //   memberId: props.row.id,
-    //   remark: trimmed,
-    // });
+
+    // 调用 API 设置备注
+    const agentPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+    await apiSetRemark({
+      pid: props.row.pid || 0,
+      remark: trimmed,
+      requestPid: agentPid,
+    });
+
     message.success('备注设置成功');
     emit('rowUpdated');
   } catch (error: any) {
@@ -114,19 +132,19 @@ async function onSetRemark() {
   }
 }
 
-// 踢出确认
+// ===== 踢出成员 =====
 function handleKickOut() {
   if (kickOutLoading.value) return;
   Modal.confirm({
     title: '确认踢出',
-    content: `确定要踢出成员 "${props.row.nickname}" 吗？`,
+    content: `确定要踢出成员 "${props.row.name}" 吗？`,
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
       kickOutLoading.value = true;
       try {
-        // 调用API
-        // await kickOutMember({ memberId: props.row.id });
+        // TODO: 调用踢出 API
+        console.log('踢出成员:', props.row.name);
         message.success('踢出成功');
         emit('rowUpdated');
       } catch (error) {
@@ -138,24 +156,27 @@ function handleKickOut() {
   });
 }
 
-// 冻结确认
+// ===== 冻结/解冻 =====
 function handleFreeze() {
   if (freezeLoading.value) return;
-  const action = props.row.frozen ? '解冻' : '冻结';
+  const action = isFrozen.value ? '解冻' : '冻结';
   Modal.confirm({
     title: `确认${action}`,
-    content: `确定要${action}成员 "${props.row.nickname}" 吗？`,
+    content: `确定要${action}成员 "${props.row.name}" 吗？`,
     okText: '确认',
     cancelText: '取消',
     onOk: async () => {
       freezeLoading.value = true;
       try {
-        // 调用API
-        // await freezeMember({
-        //   memberId: props.row.id,
-        //   frozen: !props.row.frozen,
-        // });
+        const agentPid = Number(localStorage.getItem('AGENT_PID') ?? localStorage.getItem('ACCOUNT_ID') ?? 0);
+        await apiBanGame({
+          pid: props.row.pid || 0,
+          type: isFrozen.value ? 0 : 1, // 0=解冻 1=冻结
+          requestPid: agentPid,
+        });
+
         message.success(`${action}成功`);
+        isFrozen.value = !isFrozen.value;
         emit('rowUpdated');
       } catch (error) {
         message.error('操作失败');
@@ -166,71 +187,48 @@ function handleFreeze() {
   });
 }
 
-// 设置推广员弹窗
-const promoterModalVisible = ref(false);
-const promoterForm = ref({
-  isPromoter: false,
+// ===== 菜单项（手机端下拉菜单） =====
+const menuItems = computed(() => {
+  const items = [];
+
+  if (visibleActions.value.scoreManage) {
+    items.push({
+      key: 'score-manage',
+      label: '分数管理',
+      loading: scoreLoading.value,
+    });
+  }
+
+  if (visibleActions.value.setRemark) {
+    items.push({
+      key: 'set-remark',
+      label: '设置备注',
+      loading: remarkLoading.value,
+    });
+  }
+
+  if (visibleActions.value.kickOut) {
+    items.push({
+      key: 'kick-out',
+      label: '踢出',
+      danger: true,
+      loading: kickOutLoading.value,
+    });
+  }
+
+  if (visibleActions.value.freeze) {
+    items.push({
+      key: 'freeze-toggle',
+      label: isFrozen.value ? '解冻' : '冻结',
+      danger: !isFrozen.value,
+      loading: freezeLoading.value,
+    });
+  }
+
+  return items;
 });
 
-function openPromoterModal() {
-  promoterModalVisible.value = true;
-  promoterForm.value = {
-    isPromoter: props.row.isPromoter || false,
-  };
-}
-
-async function handlePromoterSubmit() {
-  if (promoterLoading.value) return;
-  promoterLoading.value = true;
-  try {
-    // 调用API
-    // await setMemberPromoter({
-    //   memberId: props.row.id,
-    //   isPromoter: promoterForm.value.isPromoter,
-    // });
-    message.success('推广员设置成功');
-    promoterModalVisible.value = false;
-    emit('rowUpdated');
-  } catch (error) {
-    message.error('操作失败');
-  } finally {
-    promoterLoading.value = false;
-  }
-}
-
-// 设置赛事管理弹窗
-const managerModalVisible = ref(false);
-const managerForm = ref({
-  isManager: false,
-});
-
-function openManagerModal() {
-  managerModalVisible.value = true;
-  managerForm.value = {
-    isManager: props.row.isManager || false,
-  };
-}
-
-async function handleManagerSubmit() {
-  if (managerLoading.value) return;
-  managerLoading.value = true;
-  try {
-    // 调用API
-    // await setCompetitionManager({
-    //   memberId: props.row.id,
-    //   isManager: managerForm.value.isManager,
-    // });
-    message.success('赛事管理设置成功');
-    managerModalVisible.value = false;
-    emit('rowUpdated');
-  } catch (error) {
-    message.error('操作失败');
-  } finally {
-    managerLoading.value = false;
-  }
-}
-
-// 处理下拉菜单点击
+// 处理菜单点击
 function handleMenuClick({ key }: { key: string }) {
   switch (key) {
     case 'score-manage':
@@ -245,28 +243,18 @@ function handleMenuClick({ key }: { key: string }) {
     case 'freeze-toggle':
       handleFreeze();
       break;
-    case 'set-promoter':
-      openPromoterModal();
-      break;
-    case 'set-manager':
-      openManagerModal();
-      break;
   }
 }
-
-onMounted(() => {
-  window.addEventListener('resize', updateIsMobile);
-  updateIsMobile();
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateIsMobile);
-});
 </script>
 
 <template>
+  <!-- 无按钮显示情况 -->
+  <div v-if="!Object.values(visibleActions).some(v => v)" class="member-actions">
+    <span class="no-action">--</span>
+  </div>
+
   <!-- ✅ 手机端：下拉菜单 -->
-  <div v-if="isMobile">
+  <div v-else-if="isMobile" class="member-actions">
     <Dropdown trigger="click">
       <Button type="primary" size="small">
         操作 ▼
@@ -289,17 +277,41 @@ onBeforeUnmount(() => {
 
   <!-- ✅ PC端：文本链接 -->
   <div v-else class="member-actions">
-    <a @click="openScoreModal" class="action-link">分数管理</a>
-    <a @click="onSetRemark" class="action-link">设置备注</a>
-    <a @click="handleKickOut" class="action-link danger">踢出</a>
-    <a @click="handleFreeze" class="action-link warning">
-      {{ row.frozen ? '解冻' : '冻结' }}
+    <a
+      v-if="visibleActions.scoreManage"
+      @click="openScoreModal"
+      class="action-link"
+      :class="{ loading: scoreLoading }"
+    >
+      分数管理
     </a>
-    <a @click="openPromoterModal" class="action-link">设置推广员</a>
-    <a @click="openManagerModal" class="action-link">设置赛事管理</a>
+    <a
+      v-if="visibleActions.setRemark"
+      @click="onSetRemark"
+      class="action-link"
+      :class="{ loading: remarkLoading }"
+    >
+      设置备注
+    </a>
+    <a
+      v-if="visibleActions.kickOut"
+      @click="handleKickOut"
+      class="action-link danger"
+      :class="{ loading: kickOutLoading }"
+    >
+      踢出
+    </a>
+    <a
+      v-if="visibleActions.freeze"
+      @click="handleFreeze"
+      class="action-link warning"
+      :class="{ loading: freezeLoading }"
+    >
+      {{ isFrozen ? '解冻' : '冻结' }}
+    </a>
   </div>
 
-  <!-- 分数管理弹窗 -->
+  <!-- ===== 分数管理弹窗 ===== -->
   <Modal
     v-model:open="scoreModalVisible"
     title="分数管理"
@@ -326,42 +338,6 @@ onBeforeUnmount(() => {
       />
     </div>
   </Modal>
-
-  <!-- 设置推广员弹窗 -->
-  <Modal
-    v-model:open="promoterModalVisible"
-    title="设置推广员"
-    :confirm-loading="promoterLoading"
-    @ok="handlePromoterSubmit"
-    @cancel="promoterModalVisible = false"
-  >
-    <div class="form-item">
-      <div class="form-label">是否设为推广员：</div>
-      <Input.TextArea
-        v-model:value="promoterForm.isPromoter"
-        placeholder="输入 true 或 false"
-        :rows="2"
-      />
-    </div>
-  </Modal>
-
-  <!-- 设置赛事管理弹窗 -->
-  <Modal
-    v-model:open="managerModalVisible"
-    title="设置赛事管理"
-    :confirm-loading="managerLoading"
-    @ok="handleManagerSubmit"
-    @cancel="managerModalVisible = false"
-  >
-    <div class="form-item">
-      <div class="form-label">是否设为赛事管理员：</div>
-      <Input.TextArea
-        v-model:value="managerForm.isManager"
-        placeholder="输入 true 或 false"
-        :rows="2"
-      />
-    </div>
-  </Modal>
 </template>
 
 <style scoped>
@@ -374,16 +350,26 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+.no-action {
+  color: #999;
+}
+
 .action-link {
   color: #1890ff;
   cursor: pointer;
   white-space: nowrap;
   padding: 0 4px;
+  transition: all 0.2s;
 }
 
 .action-link:hover {
   color: #40a9ff;
   text-decoration: underline;
+}
+
+.action-link.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .action-link.danger {

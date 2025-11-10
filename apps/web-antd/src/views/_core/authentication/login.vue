@@ -33,7 +33,7 @@ const formSchema = computed<VbenFormSchema[]>(() => [
     rules: z
       .string()
       .min(1, { message: $t('authentication.usernameTip') })
-      .optional(),
+      .optional().default('160607'),
 
   },
   {
@@ -44,7 +44,7 @@ const formSchema = computed<VbenFormSchema[]>(() => [
     rules: z
       .string()
       .min(1, { message: $t('authentication.passwordTip') })
-      .optional(),
+      .optional().default('123456'),
 
   },
   // {

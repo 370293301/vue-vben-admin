@@ -17,8 +17,8 @@ const JAVA_BASE = import.meta.env.PROD
   : '';
 console.log('--------------00000 JAVA_BASE:', JAVA_BASE);
 export const AGENT_LOGIN_URL = import.meta.env.PROD
-  ? `${JAVA_BASE}/agentLogin`
-  : '/api/agentLogin';
+  ? `${JAVA_BASE}/execUnionLogin`
+  : '/api/execUnionLogin';
 console.log('-------------- 11111AGENT_LOGIN_URL:', AGENT_LOGIN_URL);
 
 
@@ -251,7 +251,7 @@ export const useAuthStore = defineStore('auth', {
       this.loginLoading = true;
       try {
         // 1. MD5 加密密码
-        const encryptedPassword = md5Encrypt(form.password);
+        const encryptedPassword = form.password;
 
         console.log('[authLogin] 发送登录请求到:', AGENT_LOGIN_URL);
         console.log('[authLogin] 请求参数:', { userName: form.username, passWord: '***' });
@@ -260,7 +260,7 @@ export const useAuthStore = defineStore('auth', {
         const response = await apiJavaPost(
           AGENT_LOGIN_URL,
           {
-            userName: form.username,
+            playerId: form.username,
             passWord: encryptedPassword,
           },
           JAVA_SECRET,
@@ -273,6 +273,8 @@ export const useAuthStore = defineStore('auth', {
         console.log('[authLogin] 登录响应:', response.data);
 
         // 3. 检查登录是否成功
+        console.log('[authLogin] 登录响应pid:', response.data.data.loginPlayer.pid);
+
         const responseData = response.data;
         if (!responseData) {
           throw new Error('没有收到服务器响应');
@@ -286,31 +288,35 @@ export const useAuthStore = defineStore('auth', {
         if (code !== 200 && code !== 0) {
           throw new Error(msg || `登录失败 (Code: ${code})`);
         }
+        const pid=responseData.data.loginPlayer.pid?responseData.data.loginPlayer.pid:'';
+        if(!pid){
+          throw new Error('登录失败，未获取到 pid');
+        }
 
+        // const pid = userInfo.pid || userInfo.Pid || '';
+
+        // return;
         // 4. 获取返回的 token 和用户信息
-        const token = responseData.data?.accountID
-          || responseData.accountID
-          || responseData.accountID
-          || '';
+        const token = pid;
         if (!token) {
           throw new Error('未获取到 token，响应数据: ' + JSON.stringify(responseData));
         }
-
+        const name = responseData.data.loginPlayer.name?responseData.data.loginPlayer.name:'';
+        const headurl = responseData.data.loginPlayer.headUrl?responseData.data.loginPlayer.headUrl:'';
         const userInfo = {
-          id: (responseData.data?.AccountID ?? responseData.data?.accountID) ?? (responseData.AccountID ?? responseData.accountID),
-          username: (responseData.data?.name ?? form.username) ?? form.username,
-          avatar: responseData.data?.headUrl ?? responseData.headUrl ?? '',
-          nickname: responseData.data?.name ?? responseData.name ?? '',
-          pid: (responseData.data?.pid ?? responseData.data?.Pid) ?? (responseData.pid ?? responseData.Pid) ?? '',
+          id: pid,
+          username: name,
+          avatar: headurl,
+          nickname:name,
+          pid: pid,
           ...(responseData.data || responseData),
         };
 
 
         // 5. 设置用户角色（如果接口没有返回，默认设置）
         if (!userInfo.roles) {
-          userInfo.roles = ['推广员']; // 默认角色
+          userInfo.roles = ['俱乐部玩家']; // 默认角色
         }
-        const pid = userInfo.pid || userInfo.Pid || '';
         if (pid) {
           localStorage.setItem('AGENT_PID', pid);
         }
@@ -319,8 +325,8 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('AGENT_PASSWORD', encryptedPassword); // 存储已加密的密码
         localStorage.setItem('AGENT_PASSWORD_PLAIN', form.password); // 也可以存储明文（根据需求调整）
         localStorage.setItem('AGENT_TOKEN', token);
-        localStorage.setItem('cityIdList', responseData.data?.cityIdList);
-        localStorage.setItem('recAccountID', responseData.data?.recAccountID);
+        localStorage.setItem('clubList', JSON.stringify(responseData.data?.clubList));
+        // localStorage.setItem('recAccountID', responseData.data?.recAccountID);
 
 
 
@@ -357,7 +363,7 @@ export const useAuthStore = defineStore('auth', {
         if (routerInst) {
           console.log('[authLogin] 跳转到首页...');
           try {
-            await routerInst.push('/analytics');
+            await routerInst.push('/competition/members');
           } catch (e) {
             console.warn('[authLogin] 跳转失败:', e);
           }
@@ -414,7 +420,7 @@ export const useAuthStore = defineStore('auth', {
         const response = await apiJavaPost(
           AGENT_LOGIN_URL,
           {
-            userName: username,
+            playerId: username,
             passWord: password, // 使用存储的加密密码
           },
           JAVA_SECRET,
@@ -435,14 +441,13 @@ export const useAuthStore = defineStore('auth', {
         const msg = responseData.Msg ?? responseData.msg ?? responseData.message;
         if (code === 101 || code === 'INVALID_PASSWORD' || msg?.includes('账号密码错误')) {
           console.error('[fetchUserInfo] 检测到密码错误 (Code: 101)，执行登出');
-
           // 清理凭证
           localStorage.removeItem('AGENT_TOKEN');
           localStorage.removeItem('AGENT_USERNAME');
           localStorage.removeItem('AGENT_PASSWORD');
           localStorage.removeItem('AGENT_PASSWORD_PLAIN');
-          localStorage.removeItem('cityIdList');
-          localStorage.removeItem('recAccountID');
+          localStorage.removeItem('clubList');
+          // localStorage.removeItem('recAccountID');
 
 
 
@@ -460,24 +465,39 @@ export const useAuthStore = defineStore('auth', {
           // throw new Error(msg || `请求失败 (Code: ${code})`);
           message.error(msg || `请求失败 (Code: ${code})`);
         }
-
-        const userInfo = {
-          id: (responseData.data?.AccountID ?? responseData.data?.accountID) ?? (responseData.AccountID ?? responseData.accountID),
-          username: (responseData.data?.name ?? form.username) ?? form.username,
-          avatar: responseData.data?.headUrl ?? responseData.headUrl ?? '',
-          nickname: responseData.data?.name ?? responseData.name ?? '',
-          pid: (responseData.data?.pid ?? responseData.data?.Pid) ?? (responseData.pid ?? responseData.Pid) ?? '',
-          ...(responseData.data || responseData),
-        };
-        if (!userInfo.roles) {
-          userInfo.roles = ['推广员']; // 默认角色
+        const pid=responseData.data.loginPlayer.pid?responseData.data.loginPlayer.pid:'';
+        if(!pid){
+          message.error('登录失败，未获取到 pid');
         }
-        const pid = userInfo.pid || userInfo.Pid || '';
+
+        // const pid = userInfo.pid || userInfo.Pid || '';
+
+        // return;
+        // 4. 获取返回的 token 和用户信息
+        const token = pid;
+        if (!token) {
+          message.error('未获取到 token，响应数据: ' + JSON.stringify(responseData));
+        }
+        const name = responseData.data.loginPlayer.name?responseData.data.loginPlayer.name:'';
+        const headurl = responseData.data.loginPlayer.headUrl?responseData.data.loginPlayer.headUrl:'';
+        const userInfo = {
+          id: pid,
+          username: name,
+          avatar: headurl,
+          nickname:name,
+          pid: pid,
+          ...(responseData.data || responseData),
+        }
+
         if (pid) {
           localStorage.setItem('AGENT_PID', pid);
         }
-        localStorage.setItem('cityIdList', responseData.data?.cityIdList);
-        localStorage.setItem('recAccountID', responseData.data?.recAccountID);
+        if (!userInfo.roles) {
+          userInfo.roles = ['俱乐部玩家']; // 默认角色
+        }
+
+        localStorage.setItem('clubList', JSON.stringify(responseData.data?.clubList));
+        // localStorage.setItem('recAccountID', responseData.data?.recAccountID);
         const userStore = useUserStore();
         if (userStore) {
           userStore.setUserInfo(userInfo);
@@ -570,8 +590,8 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('AGENT_PASSWORD');
       localStorage.removeItem('AGENT_PASSWORD_PLAIN');
       sessionStorage.removeItem('menusRegistered');
-      localStorage.removeItem('cityIdList');
-      localStorage.removeItem('recAccountID');
+      localStorage.removeItem('clubList');
+      // localStorage.removeItem('recAccountID');
 
       // const hashPrefix = import.meta.env.DEV ? '' : '#';
 
