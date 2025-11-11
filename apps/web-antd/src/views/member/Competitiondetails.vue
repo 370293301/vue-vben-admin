@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Page } from '@vben/common-ui';
 import { Button, Image, message } from 'ant-design-vue';
 import dayjs from 'dayjs';
-import { apiGetCompetitionDetails } from '#/api/competition';
+import { apiGetCompetitionDetails, apiGetPlayerBalance } from '#/api/competition';
 
 const route = useRoute();
 const router = useRouter();
@@ -68,7 +68,14 @@ const detailList = ref<any[]>([]);
 const loading = ref(false);
 const pageNum = ref(1);
 const hasMore = ref(true);
-
+// ✨ 新增: 当前登录玩家余额信息
+const playerBalance = ref({
+  sportsPoint: 0,        // 竞技点余额
+  allowSportsPoint: 0,   // 可操作竞技点额度
+  caseSportsPoint: 0,    // 保险柜竞技点
+  prizePoint: 0,         // 奖励点数
+  loading: false,        // 加载状态
+});
 // ===== execType 分类 =====
 const EXEC_TYPE_MAP = {
   playGame: [1, 2, 114, 115, 120, 121],  // 移除119
@@ -81,8 +88,46 @@ const EXEC_TYPE_MAP = {
 onMounted(() => {
   loadClubList();
   loadDetails();
+  loadPlayerBalance(); // ✨ 新增这一行
 });
+// ✨ 新增: 加载当前登录玩家余额
+async function loadPlayerBalance() {
+  const agentPid = Number(
+    localStorage.getItem('AGENT_PID') ??
+    localStorage.getItem('ACCOUNT_ID') ??
+    0
+  );
 
+  if (!agentPid || !currentClubId.value) {
+    console.log('[余额查询] 缺少必要参数');
+    return;
+  }
+
+  playerBalance.value.loading = true;
+
+  try {
+    const resp = await apiGetPlayerBalance({
+      clubId: currentClubId.value,
+      opPid: agentPid,
+      type: 0,
+      value: 0,
+      requestPid: agentPid,
+    });
+
+    console.log('[余额查询] 响应:', resp);
+
+    if (resp.data.code === 0 && resp.data.data) {
+      playerBalance.value.sportsPoint = resp.data.data.sportsPoint;
+      playerBalance.value.allowSportsPoint = resp.data.data.allowSportsPoint;
+      playerBalance.value.caseSportsPoint = resp.data.data.caseSportsPoint;
+      playerBalance.value.prizePoint = resp.data.data.prizePoint;
+    }
+  } catch (error) {
+    console.error('[余额查询] 失败:', error);
+  } finally {
+    playerBalance.value.loading = false;
+  }
+}
 // 从 localStorage 加载俱乐部列表
 function loadClubList() {
   try {
@@ -119,6 +164,7 @@ function switchClub(club: Club) {
   pageNum.value = 1;
   detailList.value = [];
   loadDetails();
+  loadPlayerBalance(); // ✨ 新增这一行
 }
 
 // 格式化时间
@@ -394,6 +440,40 @@ function goBack() {
     </div>
 
     <!-- ===== 加载状态 ===== -->
+    <!-- ✨ 新增: 当前玩家余额信息 -->
+    <div v-if="currentClubId" class="balance-info-section">
+      <div class="balance-title">我的余额</div>
+      <div class="balance-cards">
+        <div class="balance-card">
+          <div class="balance-label">竞技点余额</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.sportsPoint.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="balance-card">
+          <div class="balance-label">可操作额度</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.allowSportsPoint.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="balance-card">
+          <div class="balance-label">保险柜</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.caseSportsPoint.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="balance-card">
+          <div class="balance-label">奖励点数</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.prizePoint.toFixed(2) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <div v-if="loading && pageNum === 1" class="loading-state">加载中...</div>
 
     <!-- ===== 空状态 ===== -->
@@ -481,6 +561,58 @@ function goBack() {
 </template>
 
 <style scoped>
+/* ===== 余额信息卡片 ===== */
+.balance-info-section {
+  margin: 12px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.balance-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.balance-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.balance-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 8px;
+}
+
+.balance-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.balance-value .loading-text {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.balance-value .value-text {
+  display: inline-block;
+}
 /* ===== 竞赛头部 ===== */
 .competition-header {
   border-radius: 4px;
@@ -688,8 +820,7 @@ function goBack() {
   font-size: 12px;
 }
 
-.balance {
-}
+
 
 .room-info {
   font-size: 12px;
@@ -775,6 +906,38 @@ function goBack() {
 }
 
 @media (max-width: 600px) {
+  /* 余额信息卡片响应式 */
+  .balance-info-section {
+    padding: 12px;
+    margin: 10px 0;
+  }
+
+  .balance-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .balance-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .balance-card {
+    padding: 10px;
+  }
+
+  .balance-label {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .balance-value {
+    font-size: 16px;
+  }
+
+  .balance-value .loading-text {
+    font-size: 12px;
+  }
   .competition-header {
     padding: 6px 8px;
   }

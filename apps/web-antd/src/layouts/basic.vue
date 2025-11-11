@@ -20,45 +20,44 @@ import { openWindow } from '@vben/utils';
 import { $t } from '#/locales';
 import { useAuthStore } from '#/store';
 import LoginForm from '#/views/_core/authentication/login.vue';
-
-
+import ChangePasswordModal from '#/views/_core/authentication/change-password-modal.vue';
+import { useModalStore } from '#/store/modal';
 
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const accessStore = useAccessStore();
 const router = useRouter();
 const { destroyWatermark, updateWatermark } = useWatermark();
+const changePasswordModalRef = ref();
+const modalStore = useModalStore();
+// 获取当前端口
+const currentPort = ref(window.location.port || '80');
 
+// 判断是否显示修改密码按钮（5667 端口隐藏）
+const showChangePassword = computed(() => {
+  return currentPort.value !== '5667';
+});
 
-const menus = computed(() => [
-  // {
-  //   handler: () => {
-  //     openWindow(VBEN_DOC_URL, {
-  //       target: '_blank',
-  //     });
-  //   },
-  //   icon: BookOpenText,
-  //   text: $t('ui.widgets.document'),
-  // },
-  // {
-  //   handler: () => {
-  //     openWindow(VBEN_GITHUB_URL, {
-  //       target: '_blank',
-  //     });
-  //   },
-  //   icon: MdiGithub,
-  //   text: 'GitHub',
-  // },
-  // {
-  //   handler: () => {
-  //     openWindow(`${VBEN_GITHUB_URL}/issues`, {
-  //       target: '_blank',
-  //     });
-  //   },
-  //   icon: CircleHelp,
-  //   text: $t('ui.widgets.qa'),
-  // },
-]);
+// 动态生成菜单
+const menus = computed(() => {
+  const menuItems = [];
+
+  // 只有当不是 5667 端口时才显示修改密码按钮
+  if (showChangePassword.value) {
+    menuItems.push({
+      handler: () => {
+        console.log('[basic.vue] 点击修改密码按钮');
+        console.log('[basic.vue] modalStore:', modalStore);
+        console.log('[basic.vue] isChangePasswordOpen before:', modalStore.isChangePasswordOpen);
+        modalStore.openChangePassword();
+        console.log('[basic.vue] isChangePasswordOpen after:', modalStore.isChangePasswordOpen);
+      },
+      text: '修改密码',
+    });
+  }
+
+  return menuItems;
+});
 
 const avatar = computed(() => {
   return userStore.userInfo?.avatar ?? preferences.app.defaultAvatar;
@@ -120,10 +119,12 @@ watch(
       >
         <LoginForm />
       </AuthenticationLoginExpiredModal>
+      <ChangePasswordModal v-if="showChangePassword" />
     </template>
     <template #lock-screen>
       <LockScreen :avatar @to-login="handleLogout" />
     </template>
+    <!-- 修改：把对话框移到 BasicLayout 标签内，不使用 #extra -->
 
   </BasicLayout>
 </template>

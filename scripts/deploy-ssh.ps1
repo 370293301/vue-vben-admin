@@ -2,11 +2,11 @@
 $ErrorActionPreference = 'Stop'
 
 # 1) 本地路径固定
-Set-Location 'C:\Users\PC\Desktop\vben1\vue-vben-admin'
+Set-Location 'C:\Users\PC\Desktop\match_vben\vue-vben-admin'
 pnpm --filter @vben/web-antd build
 
 # 2) 要上传的文件（vben 已经帮你打好了）
-$localZip = 'C:\Users\PC\Desktop\vben1\vue-vben-admin\apps\web-antd\dist.zip'
+$localZip = 'C:\Users\PC\Desktop\match_vben\vue-vben-admin\apps\web-antd\dist.zip'
 # 3) 私钥
 $key      = "$env:USERPROFILE\.ssh\id_ed25519"
 # 4) 远程固定信息

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { Page } from '@vben/common-ui';
 import { Button, Image, message } from 'ant-design-vue';
 import CompetitionMemberActions from './CompetitionMemberActions.vue';
-import { apiGetCompetitionMembers, type CompetitionMember, type CompetitionSummary } from '#/api/competition';
+import { apiGetCompetitionMembers, apiGetPlayerBalance,type CompetitionMember, type CompetitionSummary } from '#/api/competition';
 
 const router = useRouter();
 
@@ -13,17 +13,28 @@ interface Club {
   id: number;
   name: string;
   clubsign: number;
+  unionId?: number; // 添加 unionId 字段
 }
 
 const clubList = ref<Club[]>([]);
 const currentClubId = ref<number | null>(null);
 const currentClubSign = ref<number | null>(null);
 const currentClubName = ref<string>('');
+const currentUnionId = ref<number | null>(null); // 新增当前 unionId
 
 // ===== 成员列表数据 =====
 const memberList = ref<CompetitionMember[]>([]);
 const summary = ref<CompetitionSummary | null>(null);
 const loading = ref(false);
+
+// ✨ 新增: 当前登录玩家余额信息
+const playerBalance = ref({
+  sportsPoint: 0,        // 竞技点余额
+  allowSportsPoint: 0,   // 可操作竞技点额度
+  caseSportsPoint: 0,    // 保险柜竞技点
+  prizePoint: 0,         // 奖励点数
+  loading: false,        // 加载状态
+});
 
 // ===== 排序和筛选 =====
 const timeType = ref(0);
@@ -84,9 +95,21 @@ function loadClubList() {
       if (Array.isArray(parsedList)) {
         clubList.value = parsedList;
         if (clubList.value.length > 0) {
-          currentClubId.value = clubList.value[0].id;
-          currentClubSign.value = clubList.value[0].clubsign;
-          currentClubName.value = clubList.value[0].name;
+          const firstClub = clubList.value[0];
+          currentClubId.value = firstClub.id;
+          currentClubSign.value = firstClub.clubsign;
+          currentClubName.value = firstClub.name;
+
+          // 尝试获取 unionId (可能从 id 或 clubsign 获取)
+          currentUnionId.value = firstClub.unionId || firstClub.id || null;
+
+          console.log('[debug] 初始化俱乐部:', {
+            id: currentClubId.value,
+            clubsign: currentClubSign.value,
+            name: currentClubName.value,
+            unionId: currentUnionId.value,
+          });
+
           loadMembers();
         }
       }
@@ -102,6 +125,17 @@ function switchClub(club: Club) {
   currentClubId.value = club.id;
   currentClubSign.value = club.clubsign;
   currentClubName.value = club.name;
+
+  // 尝试获取 unionId (可能从 unionId, id 获取)
+  currentUnionId.value = club.unionId || club.id || null;
+
+  console.log('[debug] 切换俱乐部:', {
+    id: currentClubId.value,
+    clubsign: currentClubSign.value,
+    name: currentClubName.value,
+    unionId: currentUnionId.value,
+  });
+
   loadMembers();
 }
 
@@ -129,6 +163,8 @@ async function loadMembers() {
       summary.value = resp.data.data.newItem || null;
       console.log('[debug] memberList:', memberList.value);
       console.log('[debug] summary:', summary.value);
+      // ✨ 加载当前登录玩家的余额
+      loadPlayerBalance();
     } else if (resp.code !== 0) {
       message.error(resp.msg || '加载失败');
     }
@@ -139,7 +175,45 @@ async function loadMembers() {
     loading.value = false;
   }
 }
+// ✨ 新增: 加载当前登录玩家余额
+async function loadPlayerBalance() {
+  // 获取当前操作者 PID
+  const agentPid = Number(
+    localStorage.getItem('AGENT_PID') ??
+    localStorage.getItem('ACCOUNT_ID') ??
+    0
+  );
 
+  if (!agentPid || !currentClubId.value) {
+    console.log('[余额查询] 缺少必要参数');
+    return;
+  }
+
+  playerBalance.value.loading = true;
+
+  try {
+    const resp = await apiGetPlayerBalance({
+      clubId: currentClubId.value,
+      opPid: agentPid,  // 查询自己的余额
+      type: 0,
+      value: 0,
+      requestPid: agentPid,
+    });
+
+    console.log('[余额查询] 响应:', resp);
+
+    if (resp.data.code === 0 && resp.data.data) {
+      playerBalance.value.sportsPoint = resp.data.data.sportsPoint;
+      playerBalance.value.allowSportsPoint = resp.data.data.allowSportsPoint;
+      playerBalance.value.caseSportsPoint = resp.data.data.caseSportsPoint;
+      playerBalance.value.prizePoint = resp.data.data.prizePoint;
+    }
+  } catch (error) {
+    console.error('[余额查询] 失败:', error);
+  } finally {
+    playerBalance.value.loading = false;
+  }
+}
 // 时间改变
 function handleTimeChange(value: number) {
   timeType.value = value;
@@ -189,7 +263,7 @@ function getVisibleActions(row: CompetitionMember) {
   const minister = row.minister || 0;
   const isPromoter = row.isPromotionManag === 1;
 
-  if (minister === 1 || minister === 3) {
+  if (minister === 0 || minister === 1 || minister === 2 || minister === 3) {
     actions.scoreManage = true;
     actions.setRemark = true;
     actions.kickOut = true;
@@ -274,7 +348,40 @@ function getVisibleActions(row: CompetitionMember) {
         </div>
       </div>
     </div>
-
+    <!-- ✨ 新增: 当前玩家余额信息 -->
+    <div v-if="currentClubId" class="balance-info-section">
+      <div class="balance-title">我的余额</div>
+      <div class="balance-cards">
+        <div class="balance-card">
+          <div class="balance-label">竞技点余额</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.sportsPoint.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="balance-card">
+          <div class="balance-label">可操作额度</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.allowSportsPoint.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="balance-card">
+          <div class="balance-label">保险柜</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.caseSportsPoint.toFixed(2) }}</span>
+          </div>
+        </div>
+        <div class="balance-card">
+          <div class="balance-label">奖励点数</div>
+          <div class="balance-value">
+            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
+            <span v-else class="value-text">{{ playerBalance.prizePoint.toFixed(2) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- ===== 表格标题 + 表头 ===== -->
     <div class="table-header">
       <div class="table-title">成员列表</div>
@@ -330,6 +437,7 @@ function getVisibleActions(row: CompetitionMember) {
             >
               {{ row.name }}
             </div>
+            <div> {{ row.pid }}</div>
           </div>
         </div>
 
@@ -353,10 +461,12 @@ function getVisibleActions(row: CompetitionMember) {
         <!-- 战绩 -->
         <div class="col-balance2">{{ row.sportsPointConsume }}</div>
 
-        <!-- 操作 -->
+        <!-- 操作 - 传递 clubId 和 unionId -->
         <div class="col-action">
           <CompetitionMemberActions
             :row="row"
+            :current-club-id="currentClubId"
+            :current-union-id="currentUnionId"
             :visible-actions="getVisibleActions(row)"
             @row-updated="handleRowUpdated"
           />
@@ -686,6 +796,58 @@ function getVisibleActions(row: CompetitionMember) {
 
   text-decoration: underline;
 }
+/* ===== 余额信息卡片 ===== */
+.balance-info-section {
+  margin: 12px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.balance-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.balance-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.balance-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 8px;
+}
+
+.balance-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.balance-value .loading-text {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.balance-value .value-text {
+  display: inline-block;
+}
 
 /* ===== 加载和空状态 ===== */
 .loading-state,
@@ -816,6 +978,39 @@ function getVisibleActions(row: CompetitionMember) {
   .tab-btn {
     padding: 3px 10px;
     font-size: 11px;
+  }
+
+  /* 余额信息卡片响应式 */
+  .balance-info-section {
+    padding: 12px;
+    margin: 10px 0;
+  }
+
+  .balance-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .balance-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .balance-card {
+    padding: 10px;
+  }
+
+  .balance-label {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+
+  .balance-value {
+    font-size: 16px;
+  }
+
+  .balance-value .loading-text {
+    font-size: 12px;
   }
 
   .filter-controls {
