@@ -1,14 +1,15 @@
+import { useRouter } from 'vue-router';
+
+import { LOGIN_PATH } from '@vben/constants';
+import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
+
+import { message } from 'ant-design-vue';
+import CryptoJS from 'crypto-js'; // 需要安装: npm install crypto-js
 // src/store/auth.ts
 import { defineStore } from 'pinia';
-import { useRouter } from 'vue-router';
-import axios from '#/utils/http';
-import requestAxios from '#/api/request';
-import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
-import { LOGIN_PATH } from '@vben/constants';
-import { getAllMenusApi } from '#/api/core/menu';
+
 import { apiJavaPost } from '#/api/auth'; // 导入 apiJavaPost 方法
-import CryptoJS from 'crypto-js'; // 需要安装: npm install crypto-js
-import { message } from 'ant-design-vue';
+import { getAllMenusApi } from '#/api/core/menu';
 // ----- 配置区 -----
 // const AGENT_LOGIN_URL = 'http://47.117.179.59:9885/agentLogin';
 
@@ -21,12 +22,12 @@ export const AGENT_LOGIN_URL = import.meta.env.PROD
   : '/api/execUnionLogin';
 console.log('-------------- 11111AGENT_LOGIN_URL:', AGENT_LOGIN_URL);
 
-
 const JAVA_SECRET = '33f77501874dbcd087ed565d9b511117'; // Java 签名密钥
 const JAVA_SECRET_KEY_NAME: string | undefined = undefined; // 签名密钥名称
 
 // ----- 类型 -----
 type User = {
+  [k: string]: any;
   avatar?: string;
   id?: number;
   is_admin?: number;
@@ -34,7 +35,6 @@ type User = {
   role_id?: number;
   role_name?: string;
   username?: string;
-  [k: string]: any;
 };
 
 type UserInfo = any;
@@ -61,7 +61,11 @@ function generateSign(params: Record<string, any>, secret: string): string {
   // 2. 构建签名源字符串：key1=value1&key2=value2&...&secret
   let signSource = '';
   for (const key of sortedKeys) {
-    if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+    if (
+      params[key] !== undefined &&
+      params[key] !== null &&
+      params[key] !== ''
+    ) {
       signSource += `${key}=${params[key]}&`;
     }
   }
@@ -154,7 +158,9 @@ export const useAuthStore = defineStore('auth', {
         function findModuleByComponentString(compStr: string) {
           if (!compStr || typeof compStr !== 'string') return null;
           const cleaned = compStr.replace(/^\//, '').replace(/\.vue$/, '');
-          const key = Object.keys(viewModules).find(k => k.endsWith(`${cleaned}.vue`));
+          const key = Object.keys(viewModules).find((k) =>
+            k.endsWith(`${cleaned}.vue`),
+          );
           if (!key) return null;
           return viewModules[key];
         }
@@ -172,14 +178,20 @@ export const useAuthStore = defineStore('auth', {
               const loader = findModuleByComponentString(menuItem.component);
               if (loader) route.component = loader;
               else {
-                console.warn('[registerMenus] view not found for', menuItem.component);
+                console.warn(
+                  '[registerMenus] view not found for',
+                  menuItem.component,
+                );
               }
             } else {
               route.component = menuItem.component;
             }
           }
 
-          if (Array.isArray(menuItem.children) && menuItem.children.length) {
+          if (
+            Array.isArray(menuItem.children) &&
+            menuItem.children.length > 0
+          ) {
             route.children = menuItem.children.map((c: any) => menuToRoute(c));
           }
           return route;
@@ -190,53 +202,77 @@ export const useAuthStore = defineStore('auth', {
 
         for (const m of menus) {
           const rr = menuToRoute(m);
-          const exists = router.getRoutes().some((r: any) => String(r.name) === String(rr.name) || r.path === rr.path);
+          const exists = router
+            .getRoutes()
+            .some(
+              (r: any) =>
+                String(r.name) === String(rr.name) || r.path === rr.path,
+            );
           if (exists) {
-            console.warn('[registerMenus] skip duplicate route', rr.name, rr.path);
+            console.warn(
+              '[registerMenus] skip duplicate route',
+              rr.name,
+              rr.path,
+            );
             continue;
           }
           try {
             if (router.getRoutes().some((r: any) => r.name === parentName)) {
               router.addRoute(parentName, rr);
-              console.log('[registerMenus] addRoute to parent', parentName, rr.path);
+              console.log(
+                '[registerMenus] addRoute to parent',
+                parentName,
+                rr.path,
+              );
             } else {
               router.addRoute(rr);
               console.log('[registerMenus] addRoute global', rr.path);
             }
-          } catch (e) {
-            console.error('[registerMenus] addRoute error', e, rr.path);
+          } catch (error) {
+            console.error('[registerMenus] addRoute error', error, rr.path);
           }
         }
 
-        await new Promise(res => setTimeout(res, 50));
-        console.log('[registerMenus] routes registered, now getRoutes length:', router.getRoutes().length);
+        await new Promise((res) => setTimeout(res, 50));
+        console.log(
+          '[registerMenus] routes registered, now getRoutes length:',
+          router.getRoutes().length,
+        );
 
         const allowedNames = new Set<string>();
         function collectNames(menuList: any[]) {
           for (const it of menuList) {
             if (it.name) allowedNames.add(String(it.name));
-            if (Array.isArray(it.children) && it.children.length) collectNames(it.children);
+            if (Array.isArray(it.children) && it.children.length > 0)
+              collectNames(it.children);
           }
         }
         collectNames(menus);
 
-        const systemKeep = ['Root', 'Authentication', 'Login', 'FallbackNotFound'];
+        const systemKeep = [
+          'Root',
+          'Authentication',
+          'Login',
+          'FallbackNotFound',
+        ];
         for (const n of systemKeep) allowedNames.add(n);
 
         for (const r of router.getRoutes()) {
           const rn = String(r.name ?? '');
           if (!rn) continue;
-          if (!allowedNames.has(rn)) {
-            (r as any).meta = { ...(r as any).meta, hideInMenu: true };
-          } else {
+          if (allowedNames.has(rn)) {
             (r as any).meta = { ...(r as any).meta, hideInMenu: false };
+          } else {
+            (r as any).meta = { ...(r as any).meta, hideInMenu: true };
           }
         }
 
-        console.log('[registerMenus] applied hideInMenu flags. allowedNames:', Array.from(allowedNames));
-      } catch (e) {
-        console.error('[registerMenus] error:', e);
-        throw e;
+        console.log('[registerMenus] applied hideInMenu flags. allowedNames:', [
+          ...allowedNames,
+        ]);
+      } catch (error) {
+        console.error('[registerMenus] error:', error);
+        throw error;
       }
     },
 
@@ -247,14 +283,22 @@ export const useAuthStore = defineStore('auth', {
      * @param accessStore Vben 的 accessStore
      * @param userStore Vben 的 userStore
      */
-    async authLogin(form: { username: string; password: string }, router: any, accessStore: any, userStore: any) {
+    async authLogin(
+      form: { password: string; username: string },
+      router: any,
+      accessStore: any,
+      userStore: any,
+    ) {
       this.loginLoading = true;
       try {
         // 1. MD5 加密密码
         const encryptedPassword = form.password;
 
         console.log('[authLogin] 发送登录请求到:', AGENT_LOGIN_URL);
-        console.log('[authLogin] 请求参数:', { userName: form.username, passWord: '***' });
+        console.log('[authLogin] 请求参数:', {
+          userName: form.username,
+          passWord: '***',
+        });
 
         // 2. 使用 apiJavaPost 方法请求接口（自动生成签名）
         const response = await apiJavaPost(
@@ -267,13 +311,16 @@ export const useAuthStore = defineStore('auth', {
           {
             contentType: 'form',
             secretKeyName: JAVA_SECRET_KEY_NAME,
-          }
+          },
         );
 
         console.log('[authLogin] 登录响应:', response.data);
 
         // 3. 检查登录是否成功
-        console.log('[authLogin] 登录响应pid:', response.data.data.loginPlayer.pid);
+        console.log(
+          '[authLogin] 登录响应pid:',
+          response.data.data.loginPlayer.pid,
+        );
 
         const responseData = response.data;
         if (!responseData) {
@@ -281,15 +328,19 @@ export const useAuthStore = defineStore('auth', {
         }
 
         // 根据实际接口的返回格式调整判断逻辑
-        const code = responseData.Code ?? responseData.code ?? responseData.status;
-        const msg = responseData.Msg ?? responseData.msg ?? responseData.message;
+        const code =
+          responseData.Code ?? responseData.code ?? responseData.status;
+        const msg =
+          responseData.Msg ?? responseData.msg ?? responseData.message;
 
         // 假设成功的 code 是 200 或 0
         if (code !== 200 && code !== 0) {
           throw new Error(msg || `登录失败 (Code: ${code})`);
         }
-        const pid=responseData.data.loginPlayer.pid?responseData.data.loginPlayer.pid:'';
-        if(!pid){
+        const pid = responseData.data.loginPlayer.pid
+          ? responseData.data.loginPlayer.pid
+          : '';
+        if (!pid) {
           throw new Error('登录失败，未获取到 pid');
         }
 
@@ -299,19 +350,24 @@ export const useAuthStore = defineStore('auth', {
         // 4. 获取返回的 token 和用户信息
         const token = pid;
         if (!token) {
-          throw new Error('未获取到 token，响应数据: ' + JSON.stringify(responseData));
+          throw new Error(
+            `未获取到 token，响应数据: ${JSON.stringify(responseData)}`,
+          );
         }
-        const name = responseData.data.loginPlayer.name?responseData.data.loginPlayer.name:'';
-        const headurl = responseData.data.loginPlayer.headUrl?responseData.data.loginPlayer.headUrl:'';
+        const name = responseData.data.loginPlayer.name
+          ? responseData.data.loginPlayer.name
+          : '';
+        const headurl = responseData.data.loginPlayer.headUrl
+          ? responseData.data.loginPlayer.headUrl
+          : '';
         const userInfo = {
           id: pid,
           username: name,
           avatar: headurl,
-          nickname:name,
-          pid: pid,
+          nickname: name,
+          pid,
           ...(responseData.data || responseData),
         };
-
 
         // 5. 设置用户角色（如果接口没有返回，默认设置）
         if (!userInfo.roles) {
@@ -325,10 +381,11 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('AGENT_PASSWORD', encryptedPassword); // 存储已加密的密码
         localStorage.setItem('AGENT_PASSWORD_PLAIN', form.password); // 也可以存储明文（根据需求调整）
         localStorage.setItem('AGENT_TOKEN', token);
-        localStorage.setItem('clubList', JSON.stringify(responseData.data?.clubList));
+        localStorage.setItem(
+          'clubList',
+          JSON.stringify(responseData.data?.clubList),
+        );
         // localStorage.setItem('recAccountID', responseData.data?.recAccountID);
-
-
 
         // 6. 设置 token 到 store
         this.setToken(token);
@@ -338,7 +395,7 @@ export const useAuthStore = defineStore('auth', {
         try {
           const us = useUserStore();
           us.setUserInfo(userInfo);
-        } catch (_) {}
+        } catch {}
 
         // 8. 更新 accessStore
         const access = accessStore ?? useAccessStore();
@@ -359,23 +416,23 @@ export const useAuthStore = defineStore('auth', {
         }
 
         // 9. 注册路由并跳转
-        const routerInst = router ?? (typeof window === 'undefined' ? undefined : useRouter());
+        const routerInst =
+          router ?? (typeof window === 'undefined' ? undefined : useRouter());
         if (routerInst) {
           console.log('[authLogin] 跳转到首页...');
           try {
             await routerInst.push('/competition/members');
-          } catch (e) {
-            console.warn('[authLogin] 跳转失败:', e);
+          } catch (error) {
+            console.warn('[authLogin] 跳转失败:', error);
           }
         } else {
           console.warn('[authLogin] 没有 router 实例');
         }
 
         return { success: true, userInfo };
-      } catch (err: any) {
+      } catch (error: any) {
         // console.error('[authLogin] 登录错误:', err.message || err);
-        message.error(err.message || '登录失败，请重试');
-
+        message.error(error.message || '登录失败，请重试');
 
         // 清理
         localStorage.removeItem('AGENT_TOKEN');
@@ -383,7 +440,7 @@ export const useAuthStore = defineStore('auth', {
         localStorage.removeItem('AGENT_PASSWORD');
         localStorage.removeItem('AGENT_PASSWORD_PLAIN');
         this.setToken('');
-        throw err;
+        throw error;
       } finally {
         this.loginLoading = false;
       }
@@ -411,7 +468,6 @@ export const useAuthStore = defineStore('auth', {
           }
           // 如果还有 token 但没有账号密码，可能是特殊情况，返回空信息
           return null;
-
         }
 
         console.log('[fetchUserInfo] 使用存储的账号信息请求用户数据');
@@ -427,7 +483,7 @@ export const useAuthStore = defineStore('auth', {
           {
             contentType: 'form',
             secretKeyName: JAVA_SECRET_KEY_NAME,
-          }
+          },
         );
 
         console.log('[fetchUserInfo] 响应:', response.data);
@@ -437,9 +493,15 @@ export const useAuthStore = defineStore('auth', {
           throw new Error('没有收到服务器响应');
         }
 
-        const code = responseData.Code ?? responseData.code ?? responseData.status;
-        const msg = responseData.Msg ?? responseData.msg ?? responseData.message;
-        if (code === 101 || code === 'INVALID_PASSWORD' || msg?.includes('账号密码错误')) {
+        const code =
+          responseData.Code ?? responseData.code ?? responseData.status;
+        const msg =
+          responseData.Msg ?? responseData.msg ?? responseData.message;
+        if (
+          code === 101 ||
+          code === 'INVALID_PASSWORD' ||
+          msg?.includes('账号密码错误')
+        ) {
           console.error('[fetchUserInfo] 检测到密码错误 (Code: 101)，执行登出');
           // 清理凭证
           localStorage.removeItem('AGENT_TOKEN');
@@ -448,8 +510,6 @@ export const useAuthStore = defineStore('auth', {
           localStorage.removeItem('AGENT_PASSWORD_PLAIN');
           localStorage.removeItem('clubList');
           // localStorage.removeItem('recAccountID');
-
-
 
           // 弹出提示
           message.error('密码已修改，请重新登录');
@@ -465,8 +525,10 @@ export const useAuthStore = defineStore('auth', {
           // throw new Error(msg || `请求失败 (Code: ${code})`);
           message.error(msg || `请求失败 (Code: ${code})`);
         }
-        const pid=responseData.data.loginPlayer.pid?responseData.data.loginPlayer.pid:'';
-        if(!pid){
+        const pid = responseData.data.loginPlayer.pid
+          ? responseData.data.loginPlayer.pid
+          : '';
+        if (!pid) {
           message.error('登录失败，未获取到 pid');
         }
 
@@ -476,18 +538,25 @@ export const useAuthStore = defineStore('auth', {
         // 4. 获取返回的 token 和用户信息
         const token = pid;
         if (!token) {
-          message.error('未获取到 token，响应数据: ' + JSON.stringify(responseData));
+          message.error(
+            `未获取到 token，响应数据: ${JSON.stringify(responseData)}`,
+          );
         }
-        const name = responseData.data.loginPlayer.name?responseData.data.loginPlayer.name:'';
-        const headurl = responseData.data.loginPlayer.headUrl?responseData.data.loginPlayer.headUrl:'';
+        const name = responseData.data.loginPlayer.name
+          ? responseData.data.loginPlayer.name
+          : '';
+        const headurl = responseData.data.loginPlayer.headUrl
+          ? responseData.data.loginPlayer.headUrl
+          : '';
         const userInfo = {
           id: pid,
           username: name,
           avatar: headurl,
-          nickname:name,
-          pid: pid,
+          nickname: name,
+          homePath: '/competition/members',
+          pid,
           ...(responseData.data || responseData),
-        }
+        };
 
         if (pid) {
           localStorage.setItem('AGENT_PID', pid);
@@ -496,7 +565,10 @@ export const useAuthStore = defineStore('auth', {
           userInfo.roles = ['俱乐部玩家']; // 默认角色
         }
 
-        localStorage.setItem('clubList', JSON.stringify(responseData.data?.clubList));
+        localStorage.setItem(
+          'clubList',
+          JSON.stringify(responseData.data?.clubList),
+        );
         // localStorage.setItem('recAccountID', responseData.data?.recAccountID);
         const userStore = useUserStore();
         if (userStore) {
@@ -505,13 +577,13 @@ export const useAuthStore = defineStore('auth', {
           try {
             const us = useUserStore();
             us.setUserInfo(userInfo);
-          } catch (_) {}
+          } catch {}
         }
 
         return userInfo;
-      } catch (err: any) {
-        console.error('[fetchUserInfo] 错误:', err.message || err);
-        throw err;
+      } catch (error: any) {
+        console.error('[fetchUserInfo] 错误:', error.message || error);
+        throw error;
       }
     },
 
@@ -520,7 +592,8 @@ export const useAuthStore = defineStore('auth', {
       function walk(list: any[]) {
         for (const it of list) {
           if (it && it.name) out.push(String(it.name));
-          if (Array.isArray(it.children) && it.children.length) walk(it.children);
+          if (Array.isArray(it.children) && it.children.length > 0)
+            walk(it.children);
         }
       }
       walk(menus || []);
@@ -541,33 +614,38 @@ export const useAuthStore = defineStore('auth', {
         routerInst = arg.router;
       }
 
-      routerInst = routerInst ?? (typeof window === 'undefined' ? undefined : useRouter());
+      routerInst =
+        routerInst ?? (typeof window === 'undefined' ? undefined : useRouter());
 
       try {
         const auth = useAuthStore();
         const menuNames = await this.collectMenuNames(auth.menus || []);
-        if (routerInst && Array.isArray(menuNames) && menuNames.length) {
+        if (routerInst && Array.isArray(menuNames) && menuNames.length > 0) {
           for (const nm of menuNames) {
             try {
-              if (nm && typeof routerInst.hasRoute === 'function' && routerInst.hasRoute(nm)) {
+              if (
+                nm &&
+                typeof routerInst.hasRoute === 'function' &&
+                routerInst.hasRoute(nm)
+              ) {
                 routerInst.removeRoute(nm);
                 console.log('[logout] 移除动态路由:', nm);
               }
-            } catch (err) {
-              console.warn('[logout] 移除路由出错:', nm, err);
+            } catch (error) {
+              console.warn('[logout] 移除路由出错:', nm, error);
             }
           }
         }
-      } catch (e) {
-        console.warn('[logout] 动态路由清理出错:', e);
+      } catch (error) {
+        console.warn('[logout] 动态路由清理出错:', error);
       }
 
       try {
         resetAllStores();
         const access = useAccessStore();
         access.setLoginExpired(false);
-      } catch (e) {
-        console.warn('[logout] resetAllStores 出错:', e);
+      } catch (error) {
+        console.warn('[logout] resetAllStores 出错:', error);
       }
 
       // 清理 stores
@@ -598,7 +676,6 @@ export const useAuthStore = defineStore('auth', {
       // const router = useRouter();
       // await router.push(LOGIN_PATH);
 
-
       // const hasHash = window.location.href.includes('#');
       // const hashPrefix = hasHash ? '#' : '';
       // console.log(window.location.href)
@@ -611,8 +688,8 @@ export const useAuthStore = defineStore('auth', {
       if (redirect && routerInst) {
         try {
           await routerInst.replace({ path: LOGIN_PATH });
-        } catch (e) {
-          console.warn('[logout] 路由跳转失败，使用 location replace', e);
+        } catch (error) {
+          console.warn('[logout] 路由跳转失败，使用 location replace', error);
           window.location.replace(LOGIN_PATH);
         }
       } else {

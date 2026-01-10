@@ -1,10 +1,19 @@
 <script lang="ts" setup>
-import { reactive, ref, computed, onMounted } from 'vue';
+import type { CompetitionMember, CompetitionSummary } from '#/api/competition';
+
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
+
 import { Page } from '@vben/common-ui';
-import { Button, Image, message } from 'ant-design-vue';
+
+import { Image, Input, message } from 'ant-design-vue';
+
+import {
+  apiGetCompetitionMembers,
+  apiGetPlayerBalance,
+} from '#/api/competition';
+
 import CompetitionMemberActions from './CompetitionMemberActions.vue';
-import { apiGetCompetitionMembers, apiGetPlayerBalance,type CompetitionMember, type CompetitionSummary } from '#/api/competition';
 
 const router = useRouter();
 
@@ -17,11 +26,14 @@ interface Club {
 }
 
 const clubList = ref<Club[]>([]);
-const currentClubId = ref<number | null>(null);
-const currentClubSign = ref<number | null>(null);
+const currentClubId = ref<null | number>(null);
+const currentClubSign = ref<null | number>(null);
 const currentClubName = ref<string>('');
-const currentUnionId = ref<number | null>(null); // 新增当前 unionId
-
+const currentUnionId = ref<null | number>(null); // 新增当前 unionId
+// 在已有的 ref 定义区域添加
+const isPort5667 = ref(false);
+// ✨ 新增: 搜索关键词
+const searchQuery = ref<string>('');
 // ===== 成员列表数据 =====
 const memberList = ref<CompetitionMember[]>([]);
 const summary = ref<CompetitionSummary | null>(null);
@@ -29,11 +41,11 @@ const loading = ref(false);
 
 // ✨ 新增: 当前登录玩家余额信息
 const playerBalance = ref({
-  sportsPoint: 0,        // 竞技点余额
-  allowSportsPoint: 0,   // 可操作竞技点额度
-  caseSportsPoint: 0,    // 保险柜竞技点
-  prizePoint: 0,         // 奖励点数
-  loading: false,        // 加载状态
+  sportsPoint: 0, // 竞技点余额
+  allowSportsPoint: 0, // 可操作竞技点额度
+  caseSportsPoint: 0, // 保险柜竞技点
+  prizePoint: 0, // 奖励点数
+  loading: false, // 加载状态
 });
 
 // ===== 排序和筛选 =====
@@ -80,9 +92,46 @@ const sortOptions = [
 const orderBy = computed(() => {
   return Number(`${sortOrder.value}${sortBy.value}`);
 });
+// ✨ 新增: 过滤后的成员列表
+const filteredMemberList = computed(() => {
+  let result = memberList.value;
+  // 5667端口不启用搜索功能
+  if (isPort5667.value) {
+    const currentPid = Number(
+      localStorage.getItem('AGENT_PID') ??
+        localStorage.getItem('ACCOUNT_ID') ??
+        0,
+    );
 
+    if (currentPid) {
+      result = memberList.value.filter((member) => member.pid === currentPid);
+    }
+    return result;
+  }
+
+  if (!searchQuery.value.trim()) {
+    return memberList.value;
+  }
+
+  const query = searchQuery.value.toLowerCase().trim();
+  return memberList.value.filter((member) => {
+    // 搜索 PID、昵称
+    const pidMatch = String(member.pid || '')
+      .toLowerCase()
+      .includes(query);
+    const nameMatch = String(member.name || '')
+      .toLowerCase()
+      .includes(query);
+    return pidMatch || nameMatch;
+  });
+});
 // ===== 初始化 =====
 onMounted(() => {
+  const currentPort = window.location.port;
+  console.log('当前端口:', currentPort); // 输出: "5667" 或其他端口
+
+  isPort5667.value = currentPort === '5667';
+  console.log('是否为5667端口:', isPort5667.value); // 输出: true 或 false
   loadClubList();
 });
 
@@ -180,8 +229,8 @@ async function loadPlayerBalance() {
   // 获取当前操作者 PID
   const agentPid = Number(
     localStorage.getItem('AGENT_PID') ??
-    localStorage.getItem('ACCOUNT_ID') ??
-    0
+      localStorage.getItem('ACCOUNT_ID') ??
+      0,
   );
 
   if (!agentPid || !currentClubId.value) {
@@ -194,7 +243,7 @@ async function loadPlayerBalance() {
   try {
     const resp = await apiGetPlayerBalance({
       clubId: currentClubId.value,
-      opPid: agentPid,  // 查询自己的余额
+      opPid: agentPid, // 查询自己的余额
       type: 0,
       value: 0,
       requestPid: agentPid,
@@ -253,6 +302,14 @@ function handleRowUpdated() {
 
 // 按钮可见性逻辑
 function getVisibleActions(row: CompetitionMember) {
+  if (isPort5667.value) {
+    return {
+      scoreManage: false,
+      setRemark: false,
+      kickOut: false,
+      freeze: false,
+    };
+  }
   const actions = {
     scoreManage: false,
     setRemark: false,
@@ -288,14 +345,24 @@ function getVisibleActions(row: CompetitionMember) {
           <button
             v-for="club in clubList"
             :key="club.id"
-            :class="['tab-btn', { active: currentClubId === club.id }]"
+            class="tab-btn"
+            :class="[{ active: currentClubId === club.id }]"
             @click="switchClub(club)"
           >
             {{ club.name }}
           </button>
         </div>
       </div>
-
+      <!-- ✨ 新增: 搜索框 - 只在非5667端口显示 -->
+      <div v-if="!isPort5667" class="search-section">
+        <span class="control-label">搜索:</span>
+        <Input
+          v-model:value="searchQuery"
+          placeholder="输入 PID 或昵称搜索"
+          allow-clear
+          class="search-input"
+        />
+      </div>
       <!-- 筛选和排序控制 -->
       <div class="filter-controls">
         <!-- 时间选择 -->
@@ -305,7 +372,8 @@ function getVisibleActions(row: CompetitionMember) {
             <button
               v-for="opt in timeOptions"
               :key="opt.value"
-              :class="['time-btn', { active: timeType === opt.value }]"
+              class="time-btn"
+              :class="[{ active: timeType === opt.value }]"
               @click="handleTimeChange(opt.value)"
               :title="opt.displayLabel"
             >
@@ -321,7 +389,8 @@ function getVisibleActions(row: CompetitionMember) {
             <button
               v-for="opt in sortOptions"
               :key="opt.value"
-              :class="['sort-btn', { active: sortBy === opt.value }]"
+              class="sort-btn"
+              :class="[{ active: sortBy === opt.value }]"
               @click="handleSortChange(opt.value)"
             >
               {{ opt.label }}
@@ -331,14 +400,16 @@ function getVisibleActions(row: CompetitionMember) {
           <!-- 升序/降序 -->
           <div class="order-buttons">
             <button
-              :class="['order-btn', { active: sortOrder === 1 }]"
+              class="order-btn"
+              :class="[{ active: sortOrder === 1 }]"
               @click="handleSortOrderChange(1)"
               title="升序"
             >
               ↑ 升序
             </button>
             <button
-              :class="['order-btn', { active: sortOrder === 2 }]"
+              class="order-btn"
+              :class="[{ active: sortOrder === 2 }]"
               @click="handleSortOrderChange(2)"
               title="降序"
             >
@@ -355,36 +426,57 @@ function getVisibleActions(row: CompetitionMember) {
         <div class="balance-card">
           <div class="balance-label">竞技点余额</div>
           <div class="balance-value">
-            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
-            <span v-else class="value-text">{{ playerBalance.sportsPoint.toFixed(2) }}</span>
+            <span v-if="playerBalance.loading" class="loading-text"
+              >加载中...</span
+            >
+            <span v-else class="value-text">{{
+              playerBalance.sportsPoint.toFixed(2)
+            }}</span>
           </div>
         </div>
         <div class="balance-card">
           <div class="balance-label">可操作额度</div>
           <div class="balance-value">
-            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
-            <span v-else class="value-text">{{ playerBalance.allowSportsPoint.toFixed(2) }}</span>
+            <span v-if="playerBalance.loading" class="loading-text"
+              >加载中...</span
+            >
+            <span v-else class="value-text">{{
+              playerBalance.allowSportsPoint.toFixed(2)
+            }}</span>
           </div>
         </div>
         <div class="balance-card">
           <div class="balance-label">保险柜</div>
           <div class="balance-value">
-            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
-            <span v-else class="value-text">{{ playerBalance.caseSportsPoint.toFixed(2) }}</span>
+            <span v-if="playerBalance.loading" class="loading-text"
+              >加载中...</span
+            >
+            <span v-else class="value-text">{{
+              playerBalance.caseSportsPoint.toFixed(2)
+            }}</span>
           </div>
         </div>
         <div class="balance-card">
           <div class="balance-label">奖励点数</div>
           <div class="balance-value">
-            <span v-if="playerBalance.loading" class="loading-text">加载中...</span>
-            <span v-else class="value-text">{{ playerBalance.prizePoint.toFixed(2) }}</span>
+            <span v-if="playerBalance.loading" class="loading-text"
+              >加载中...</span
+            >
+            <span v-else class="value-text">{{
+              playerBalance.prizePoint.toFixed(2)
+            }}</span>
           </div>
         </div>
       </div>
     </div>
     <!-- ===== 表格标题 + 表头 ===== -->
     <div class="table-header">
-      <div class="table-title">成员列表</div>
+      <div class="table-title">
+        成员列表
+        <span v-if="searchQuery && !isPort5667" class="search-result-count">
+          (搜索结果: {{ filteredMemberList.length }} 条)
+        </span>
+      </div>
       <div class="table-columns">
         <div class="col-nickname">头像/昵称</div>
         <div class="col-score">比赛分</div>
@@ -398,7 +490,7 @@ function getVisibleActions(row: CompetitionMember) {
     </div>
 
     <!-- ===== 合计行 ===== -->
-    <div v-if="summary" class="summary-section">
+    <div v-if="summary && (!searchQuery || isPort5667)" class="summary-section">
       <div class="member-row summary-row">
         <div class="col-nickname">
           <div class="player-cell">
@@ -421,7 +513,11 @@ function getVisibleActions(row: CompetitionMember) {
     <!-- ===== 成员列表 ===== -->
     <div v-else class="member-list">
       <!-- 成员行 -->
-      <div v-for="(row, idx) in memberList" :key="idx" class="member-row">
+      <div
+        v-for="(row, idx) in filteredMemberList"
+        :key="idx"
+        class="member-row"
+      >
         <!-- 头像/昵称 -->
         <div class="col-nickname">
           <div class="player-cell">
@@ -437,7 +533,7 @@ function getVisibleActions(row: CompetitionMember) {
             >
               {{ row.name }}
             </div>
-            <div> {{ row.pid }}</div>
+            <div>{{ row.pid }}</div>
           </div>
         </div>
 
@@ -474,395 +570,23 @@ function getVisibleActions(row: CompetitionMember) {
       </div>
 
       <!-- 空状态 - 只在没有数据且没有 summary 时显示 -->
-      <div v-if="memberList.length === 0 && !summary" class="empty-state">暂无数据</div>
+      <div
+        v-if="filteredMemberList.length === 0 && !summary"
+        class="empty-state"
+      >
+        {{ searchQuery && !isPort5667 ? '未找到匹配的玩家' : '暂无数据' }}
+      </div>
     </div>
   </Page>
 </template>
 
 <style scoped>
-/* ===== 竞赛头部 ===== */
-.competition-header {
-  border-radius: 4px;
-  margin-bottom: 12px;
-  padding: 12px 16px;
-}
-
-/* ===== 俱乐部选项卡 ===== */
-.club-tabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.tabs-label {
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.tabs-container {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tab-btn {
-  padding: 6px 16px;
-  border: 1px solid #d9d9d9;
-
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s;
-  white-space: nowrap;
-  min-width: auto;
-}
-
-.tab-btn:hover {
-  border-color: #40a9ff;
-
-}
-
-.tab-btn.active {
-
-  border-color: #1890ff;
-}
-
-/* ===== 筛选控制 ===== */
-.filter-controls {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.control-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.control-label {
-  font-weight: 600;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-/* ===== 时间按钮 ===== */
-.time-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.time-btn {
-  padding: 4px 12px;
-  border: 1px solid #d9d9d9;
-
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.time-btn:hover {
-  border-color: #40a9ff;
-
-}
-
-.time-btn.active {
-
-
-  border-color: #1890ff;
-}
-
-/* ===== 排序按钮 ===== */
-.sort-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.sort-btn {
-  padding: 4px 12px;
-  border: 1px solid #d9d9d9;
-
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.sort-btn:hover {
-  border-color: #40a9ff;
-
-}
-
-.sort-btn.active {
-  border-color: #1890ff;
-}
-
-/* ===== 顺序按钮 ===== */
-.order-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.order-btn {
-  padding: 4px 8px;
-  border: 1px solid #d9d9d9;
-
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s;
-  min-width: 40px;
-}
-
-.order-btn:hover {
-  border-color: #40a9ff;
-
-}
-
-.order-btn.active {
-
-
-  border-color: #1890ff;
-}
-
-/* ===== 表格 ===== */
-.table-header {
-  border-radius: 4px 4px 0 0;
-  overflow: hidden;
-  margin-bottom: 0;
-  border: 1px solid #e8e8e8;
-  border-bottom: none;
-}
-
-.table-title {
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  border-bottom: 1px solid #f0f0f0;
-
-}
-
-.table-columns {
-  display: flex;
-  gap: 0;
-  padding: 8px 0;
-  font-size: 12px;
-  font-weight: 600;
-  border-bottom: 1px solid #e8e8e8;
-  text-align: center;
-
-}
-
-.table-columns > div {
-  padding: 6px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  flex: 1;
-  min-width: 0;
-}
-
-.col-nickname {
-  flex: 1.2;
-}
-
-.col-score,
-.col-rounds,
-.col-awards,
-.col-contribution,
-.col-balance,
-.col-balance2 {
-  flex: 0.8;
-}
-
-.col-action {
-  flex: 2;
-}
-
-/* ===== 合计行容器 ===== */
-.summary-section {
-  border: 1px solid #e8e8e8;
-  border-bottom: none;
-  overflow: hidden;
-}
-
-.summary-row {
-
-  font-weight: 600;
-  display: flex;
-  gap: 0;
-  padding: 8px 0;
-  border-bottom: 1px solid #e8e8e8;
-  align-items: center;
-}
-
-.summary-row > div {
-  padding: 0 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-/* ===== 成员列表 ===== */
-.member-list {
-  border-radius: 0 0 4px 4px;
-  overflow: hidden;
-  border: 1px solid #e8e8e8;
-  border-top: none;
-}
-
-.member-row {
-  display: flex;
-  gap: 0;
-  padding: 8px 0;
-  border-bottom: 1px solid #e8e8e8;
-  align-items: center;
-  transition: background-color 0.2s;
-}
-
-.member-row:hover {
-
-}
-
-.member-row:last-child {
-  border-bottom: none;
-}
-
-.member-row > div {
-  padding: 0 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  white-space: normal;
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-}
-
-/* ===== 玩家信息 ===== */
-.player-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  width: 100%;
-}
-
-.player-cell :deep(img) {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-  object-fit: cover;
-}
-
-.player-name {
-  font-size: 12px;
-  text-align: center;
-  line-height: 1.2;
-}
-
-.player-name.is-promoter {
-
-  font-weight: 600;
-}
-
-/* 可点击样式 */
-.clickable {
-
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s;
-}
-
-.clickable:hover {
-
-  text-decoration: underline;
-}
-/* ===== 余额信息卡片 ===== */
-.balance-info-section {
-  margin: 12px 0;
-  padding: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.balance-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
-  margin-bottom: 12px;
-  opacity: 0.9;
-}
-
-.balance-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-}
-
-.balance-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.balance-label {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 8px;
-}
-
-.balance-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.balance-value .loading-text {
-  font-size: 13px;
-  font-weight: 400;
-  opacity: 0.7;
-}
-
-.balance-value .value-text {
-  display: inline-block;
-}
-
-/* ===== 加载和空状态 ===== */
-.loading-state,
-.empty-state {
-  padding: 24px;
-  text-align: center;
-
-  font-size: 14px;
-  border-radius: 4px;
-  border: 1px solid #e8e8e8;
-  margin-top: 12px;
-}
-
 /* ===== 响应式布局 ===== */
 @media (max-width: 1024px) {
+  .search-input {
+    max-width: 250px;
+  }
+
   .filter-controls {
     gap: 12px;
   }
@@ -874,13 +598,17 @@ function getVisibleActions(row: CompetitionMember) {
   }
 
   .order-btn {
-    padding: 4px 6px;
     min-width: 36px;
+    padding: 4px 6px;
     font-size: 11px;
   }
 }
 
 @media (max-width: 900px) {
+  .search-input {
+    max-width: 200px;
+  }
+
   .competition-header {
     padding: 8px 12px;
   }
@@ -906,7 +634,7 @@ function getVisibleActions(row: CompetitionMember) {
 
   .table-columns > div,
   .member-row > div {
-    padding: 4px 4px;
+    padding: 4px;
   }
 
   .player-cell :deep(img) {
@@ -942,8 +670,8 @@ function getVisibleActions(row: CompetitionMember) {
   }
 
   .order-btn {
-    padding: 3px 5px;
     min-width: 32px;
+    padding: 3px 5px;
     font-size: 10px;
   }
 
@@ -962,6 +690,16 @@ function getVisibleActions(row: CompetitionMember) {
 }
 
 @media (max-width: 600px) {
+  .search-section {
+    flex-direction: column;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .search-input {
+    max-width: 100%;
+  }
+
   .competition-header {
     padding: 6px 8px;
   }
@@ -987,8 +725,8 @@ function getVisibleActions(row: CompetitionMember) {
   }
 
   .balance-title {
-    font-size: 13px;
     margin-bottom: 10px;
+    font-size: 13px;
   }
 
   .balance-cards {
@@ -1001,8 +739,8 @@ function getVisibleActions(row: CompetitionMember) {
   }
 
   .balance-label {
-    font-size: 11px;
     margin-bottom: 6px;
+    font-size: 11px;
   }
 
   .balance-value {
@@ -1014,8 +752,8 @@ function getVisibleActions(row: CompetitionMember) {
   }
 
   .filter-controls {
-    gap: 6px;
     flex-direction: column;
+    gap: 6px;
     align-items: stretch;
   }
 
@@ -1025,8 +763,8 @@ function getVisibleActions(row: CompetitionMember) {
 
   .time-buttons,
   .sort-buttons {
-    gap: 4px;
     flex-wrap: wrap;
+    gap: 4px;
   }
 
   .time-btn,
@@ -1049,4 +787,387 @@ function getVisibleActions(row: CompetitionMember) {
     font-size: 10px;
   }
 }
+
+.competition-header {
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+}
+
+/* ✨ 新增: 搜索区域样式 */
+.search-section {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* ✨ 新增: 搜索结果计数 */
+.search-result-count {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #666;
+}
+
+.search-input {
+  flex: 1;
+  max-width: 300px;
+}
+
+/* ===== 俱乐部选项卡 ===== */
+.club-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tabs-label {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tabs-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tab-btn {
+  min-width: auto;
+  padding: 6px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  border-color: #40a9ff;
+}
+
+.tab-btn.active {
+  border-color: #1890ff;
+}
+
+/* ===== 筛选控制 ===== */
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.control-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.control-label {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===== 时间按钮 ===== */
+.time-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.time-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.time-btn:hover {
+  border-color: #40a9ff;
+}
+
+.time-btn.active {
+  border-color: #1890ff;
+}
+
+/* ===== 排序按钮 ===== */
+.sort-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sort-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.sort-btn:hover {
+  border-color: #40a9ff;
+}
+
+.sort-btn.active {
+  border-color: #1890ff;
+}
+
+/* ===== 顺序按钮 ===== */
+.order-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.order-btn {
+  min-width: 40px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid #d9d9d9;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.order-btn:hover {
+  border-color: #40a9ff;
+}
+
+.order-btn.active {
+  border-color: #1890ff;
+}
+
+/* ===== 表格 ===== */
+.table-header {
+  margin-bottom: 0;
+  overflow: hidden;
+  border: 1px solid #e8e8e8;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+.table-title {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table-columns {
+  display: flex;
+  gap: 0;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.table-columns > div {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.col-nickname {
+  flex: 1.2;
+}
+
+.col-score,
+.col-rounds,
+.col-awards,
+.col-contribution,
+.col-balance,
+.col-balance2 {
+  flex: 0.8;
+}
+
+.col-action {
+  flex: 2;
+}
+
+/* ===== 合计行容器 ===== */
+.summary-section {
+  overflow: hidden;
+  border: 1px solid #e8e8e8;
+  border-bottom: none;
+}
+
+.summary-row {
+  display: flex;
+  gap: 0;
+  align-items: center;
+  padding: 8px 0;
+  font-weight: 600;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.summary-row > div {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ===== 成员列表 ===== */
+.member-list {
+  overflow: hidden;
+  border: 1px solid #e8e8e8;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+.member-row {
+  display: flex;
+  gap: 0;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #e8e8e8;
+  transition: background-color 0.2s;
+}
+
+.member-row:hover {
+}
+
+.member-row:last-child {
+  border-bottom: none;
+}
+
+.member-row > div {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 13px;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+/* ===== 玩家信息 ===== */
+.player-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+}
+
+.player-cell :deep(img) {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.player-name {
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.player-name.is-promoter {
+  font-weight: 600;
+}
+
+/* 可点击样式 */
+.clickable {
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.clickable:hover {
+  text-decoration: underline;
+}
+
+/* ===== 余额信息卡片 ===== */
+.balance-info-section {
+  padding: 16px;
+  margin: 12px 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.balance-title {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0.9;
+}
+
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.balance-card {
+  padding: 12px;
+  background: rgb(255 255 255 / 15%);
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+}
+
+.balance-label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: rgb(255 255 255 / 85%);
+}
+
+.balance-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.balance-value .loading-text {
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.balance-value .value-text {
+  display: inline-block;
+}
+
+/* ===== 加载和空状态 ===== */
+.loading-state,
+.empty-state {
+  padding: 24px;
+  margin-top: 12px;
+  font-size: 14px;
+  text-align: center;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+}
+
+/* ===== 竞赛头部 ===== */
 </style>
